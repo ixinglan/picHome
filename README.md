@@ -344,9 +344,45 @@ A：`python manage.py runserver 8080` 换端口。
 
 ---
 
-## 十一、维护记录
+## 十一、Docker Compose 部署
+
+已内置 `Dockerfile` + `docker-compose.yml`，单容器即可上线，**无需额外配 Nginx**（静态文件由 Whitenoise 经 Gunicorn 直接提供）。
+
+### 文件清单
+- `Dockerfile`：基于 `python:3.13-slim`，装依赖 → 拷源码 → 入口脚本。
+- `docker-entrypoint.sh`：启动顺序 = 迁移数据库 → 首次自动建管理员（`inituser`）→ 收集静态文件 → 拉起 Gunicorn。
+- `docker-compose.yml`：`web` 服务，端口 `8080:8000`，SQLite 与 media 用命名卷持久化。
+- `.dockerignore`：排除 `.env` / `db.sqlite3` / `.venv` 等，密钥不会进镜像。
+
+### 快速开始
+```bash
+# 1) 确认 .env 已填好七牛云 AK/SK（不会被打进镜像，只在运行时注入容器）
+# 2) 构建并后台启动
+docker compose up -d --build
+
+# 3) 浏览器打开 http://localhost:8080/login/
+#    默认账号 admin / admin12345（首次启动自动创建，建议立刻改密码）
+docker compose exec web python manage.py inituser --password 你的强密码
+
+# 常用命令
+docker compose logs -f        # 看日志
+docker compose down           # 停止并移除容器（数据卷保留，数据库不丢）
+docker compose pull && docker compose up -d   # 更新镜像后重启
+```
+
+### 部署到服务器时的注意点
+1. `.env` 里的 `DJANGO_DEBUG` 在 compose 中已被强制覆盖为 `False`（生产安全）。
+2. **必须**在 `docker-compose.yml` 的 `DJANGO_ALLOWED_HOSTS` 加上你的域名 / 公网 IP（逗号分隔），否则会报 `DisallowedHost`。
+3. 把 `.env` 里的 `DJANGO_SECRET_KEY` 换成随机长字符串：`python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`。
+4. 数据库在命名卷 `db_data`（容器内 `/app/data/db.sqlite3`）里，容器删了重建数据也不丢；要备份就 `docker compose exec web cp /app/data/db.sqlite3 /app/data/backup.sqlite3` 再拷出来。
+5. 并发多人使用时，建议把 SQLite 换成 PostgreSQL（见上一节）。
+
+---
+
+## 十二、维护记录
 
 | 日期 | 内容 |
 | --- | --- |
 | 2026-08-21 | 初版：上传（多图/预览/时间戳命名/CDN 链接）、删除 + 回收站、简约风前端 |
 | 2026-08-31 | 增强：登录鉴权、图片标签、批量删除/恢复/彻底删除、自定义弹窗、七牛云缩略图样式 |
+| 2026-09-01 | 增加 Docker Compose 部署：Dockerfile + 入口脚本 + 命名卷持久化，Whitenoise 托管静态文件，Gunicorn 生产服务 |

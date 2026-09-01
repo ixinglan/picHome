@@ -21,3 +21,6 @@ static_collected/
 .vscode/
 .DS_Store
 .workbuddy
+
+db_data
+media_data

@@ -33,6 +33,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # 生产环境由 Gunicorn 直接提供静态文件，无需 Nginx
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -63,10 +64,13 @@ WSGI_APPLICATION = "qiniu_tool.wsgi.application"
 
 
 # ===== 数据库（开发用 SQLite）=====
+# 数据库文件路径可用 DJANGO_DB_PATH 覆盖（Docker 部署时指向持久化卷目录）。
+# 本地开发不设置该变量，则默认用项目根目录下的 db.sqlite3，行为不变。
+DB_PATH = os.getenv("DJANGO_DB_PATH", str(BASE_DIR / "db.sqlite3"))
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": DB_PATH,
     }
 }
 
@@ -93,6 +97,9 @@ STATIC_ROOT = BASE_DIR / "static_collected"
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# 生产环境（DEBUG=False）下，让 Whitenoise 压缩并提供 STATIC_ROOT 里的静态文件
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
