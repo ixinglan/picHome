@@ -1,0 +1,61 @@
+{% extends 'gallery/base.html' %}
+{% load static %}
+{% block title %}回收站 · 七牛云图库{% endblock %}
+
+{% block content %}
+  <section class="gallery-section">
+    <h2 class="section-title">回收站</h2>
+    <p class="muted">这些图片已从七牛云删除，仅本地保留。可「恢复」（重新上传到七牛云）或「彻底删除」（删除本地文件与记录）。</p>
+
+    <form method="get" class="search-bar">
+      <input type="search" name="q" value="{{ q }}" placeholder="搜索本地原名或七牛云对象名…" autocomplete="off">
+      <button class="btn" type="submit">搜索</button>
+      {% if q %}<a class="btn btn-ghost" href="{% url 'gallery:recycle' %}">清除</a>{% endif %}
+    </form>
+
+    <!-- 批量操作条 -->
+    <div class="bulk-bar" id="bulkBar" hidden>
+      <label class="check"><input type="checkbox" id="selectAll"> <span>全选</span></label>
+      <span id="pickCount" class="pick-count">已选 0 张</span>
+      <div class="bulk-actions">
+        <button class="btn btn-sm" id="bulkRestoreBtn" type="button">恢复所选</button>
+        <button class="btn btn-sm btn-danger" id="bulkPurgeBtn" type="button">彻底删除</button>
+      </div>
+    </div>
+
+    <div id="gallery" class="gallery-grid">
+      {% for it in items %}
+        <article class="card card-del" data-id="{{ it.id }}" data-key="{{ it.qiniu_key }}">
+          <label class="pick" title="选择这张">
+            <input type="checkbox" class="pick-box" value="{{ it.id }}">
+          </label>
+          <div class="thumb thumb-del">
+            <span class="deleted-tag">已删除</span>
+          </div>
+          <div class="card-body">
+            <div class="card-name" title="{{ it.original_name }}">{{ it.original_name }}</div>
+            <div class="card-key" title="{{ it.qiniu_key }}">{{ it.qiniu_key }}</div>
+            <div class="card-tags">
+              {% for t in it.tags.all %}
+                <span class="chip">{{ t.name }}</span>
+              {% empty %}
+                <span class="chip chip-empty">未分类</span>
+              {% endfor %}
+            </div>
+            <div class="card-meta"><span>删除于 {{ it.deleted_at|date:"Y-m-d H:i" }}</span></div>
+            <div class="card-actions">
+              <button class="btn btn-sm restore-btn" type="button">恢复</button>
+              <button class="btn btn-sm btn-danger purge-btn" type="button">彻底删除</button>
+            </div>
+          </div>
+        </article>
+      {% empty %}
+        <div class="empty">回收站是空的</div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'gallery/js/app.js' %}"></script>
+{% endblock %}

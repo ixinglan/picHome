@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录 · 七牛云图库</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'gallery/css/style.css' %}">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-head">
+      <span class="logo">◧</span>
+      <h1>七牛云图库</h1>
+      <p class="muted">登录后即可管理你的云端图片</p>
+    </div>
+
+    {% if error %}
+      <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" class="login-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <label class="field">
+        <span>用户名</span>
+        <input type="text" name="username" autocomplete="username" required autofocus>
+      </label>
+      <label class="field">
+        <span>密码</span>
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button class="btn btn-primary btn-block" type="submit">登 录</button>
+    </form>
+
+    <p class="login-tip muted">
+      还没有账号？在项目目录执行：<br>
+      <code>.venv/bin/python manage.py inituser</code>
+    </p>
+  </div>
+</body>
+</html>

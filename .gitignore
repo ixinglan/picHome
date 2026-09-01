@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+
+# 虚拟环境
+.venv/
+venv/
+
+# 本地上传 / 回收站文件（实际图片，不入库）
+media/
+
+# 收集静态文件
+static_collected/
+
+# 环境变量（含密钥，切勿提交）
+.env
+
+# 编辑器
+.idea/
+.vscode/
+.DS_Store
+.workbuddy
