@@ -36,6 +36,7 @@ from .qiniu_client import (
     QiniuConfigError,
     build_key,
     delete_file,
+    delete_file_strict,
     public_url,
     upload_file,
 )
@@ -107,12 +108,18 @@ def _asset_payload(asset):
 
 
 # ---------- 核心操作（被单条/批量复用） ----------
-def _soft_delete(asset):
-    """删除七牛云对象 + 本地移入回收站 + 标记删除。返回 (True, None) 或 (False, 错误信息)。"""
-    try:
-        delete_file(asset.qiniu_key)
-    except Exception as e:
-        return False, f"七牛云删除失败：{e}"
+def _soft_delete(asset, remote=True):
+    """
+    删除七牛云对象 + 本地移入回收站 + 标记删除。
+    remote=False 时跳过云端删除（用于云端已删除、只需同步本地状态的场景）。
+
+    返回 (True, None) 或 (False, 错误信息)。
+    """
+    if remote:
+        try:
+            delete_file(asset.qiniu_key)
+        except Exception as e:
+            return False, f"七牛云删除失败：{e}"
 
     src = _uploads_dir() / asset.local_name
     dst_name = _unique_name(_recycle_dir(), asset.local_name)
@@ -341,6 +348,47 @@ def delete_batch(request):
     return JsonResponse(
         {"ok": True, "deleted": len(deleted), "failed": failed, "ids": deleted}
     )
+
+
+@login_required
+@require_POST
+def delete_remote(request):
+    """
+    按七牛云对象名「直接删云端」，不校验本地是否存在记录。
+
+    - 云端存在 → 删除，返回 ok
+    - 云端不存在（612）→ 返回 ok=False + 明确提示
+    - 删除成功后，若本地恰好有同一 key 的正常记录，则同步移入回收站，避免列表里留着失效图片
+    """
+    key = request.POST.get("key", "").strip()
+    if not key:
+        return JsonResponse({"ok": False, "error": "请填写七牛云对象名"}, status=400)
+    if not _qiniu_ready():
+        return JsonResponse(
+            {"ok": False, "error": "七牛云尚未配置，请先在 .env 中填写 AK / SK / Bucket / 域名"},
+            status=400,
+        )
+
+    try:
+        result = delete_file_strict(key)
+    except QiniuConfigError as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": f"七牛云删除失败：{e}"}, status=500)
+
+    if result == "missing":
+        return JsonResponse(
+            {"ok": False, "error": f"七牛云上不存在该对象：{key}"}, status=404
+        )
+
+    # 云端删除成功：顺手把本地同一 key 的正常记录同步进回收站
+    synced = False
+    asset = ImageAsset.objects.filter(qiniu_key=key).first()
+    if asset and asset.status == ImageAsset.STATUS_ACTIVE:
+        ok, _err = _soft_delete(asset, remote=False)
+        synced = ok
+
+    return JsonResponse({"ok": True, "key": key, "synced": synced})
 
 
 # ---------- 标签 ----------

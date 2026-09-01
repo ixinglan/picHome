@@ -1,17 +1,35 @@
-/* ===== 七牛云图库 · 前端交互（Django 模板 + 原生 JS，不分前后端） ===== */
+/* ==========================================================================
+   七牛云图库 · 前端交互
+   · 上传：顶栏按钮 / 整页拖拽 → 底部浮动队列（不占主区）
+   · 云端删除：独立入口，直接删七牛云对象，不校验本地
+   · 弹窗 / Toast / 批量 / 标签
+   ========================================================================== */
 (function () {
   "use strict";
 
-  const csrftoken = document.querySelector('meta[name="csrf-token"]').content;
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  if (!meta) return;                       // 登录页没有 csrf meta，直接跳过
+  const csrftoken = meta.content;
+  const isIndex = document.body.dataset.page === "index";
 
-  /* ---------- 工具函数 ---------- */
+  /* ---------- 图标 ---------- */
+  const svg = (paths, extra) =>
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+    'stroke-linecap="round" stroke-linejoin="round"' + (extra || "") + ">" + paths + "</svg>";
+
+  const ICON_EYE = svg('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>');
+  const ICON_TAG = svg('<path d="M3 11V5a2 2 0 0 1 2-2h6l9 9-8 8-9-9Z"/><circle cx="7.5" cy="7.5" r="1.3"/>');
+  const ICON_TRASH = svg('<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>');
+  const ICON_COPY = svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>');
+
+  /* ---------- 工具 ---------- */
   let toastTimer;
   function toast(msg, type) {
     const el = document.getElementById("toast");
     el.textContent = msg;
     el.className = "toast show" + (type ? " " + type : "");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => (el.className = "toast"), 2600);
+    toastTimer = setTimeout(() => (el.className = "toast"), 2800);
   }
 
   function formatBytes(b) {
@@ -19,6 +37,13 @@
     const u = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(b) / Math.log(1024));
     return (b / Math.pow(1024, i)).toFixed(i ? 1 : 0) + " " + u[i];
+  }
+
+  /* 服务端返回 "2026-09-01 17:58:10" → "9月1日 17:58" */
+  function formatWhen(s) {
+    const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+    if (!m) return s || "";
+    return `${+m[2]}月${+m[3]}日 ${m[4]}:${m[5]}`;
   }
 
   function post(url, data) {
@@ -29,7 +54,7 @@
     })
       .then((r) => {
         const ct = r.headers.get("content-type") || "";
-        // 未登录时 Django 会重定向到登录页（HTML），这里给出人话提示
+        // 未登录时 Django 会重定向到登录页（HTML），这里转成人话
         if (!ct.includes("application/json")) {
           return { ok: false, error: "登录状态已失效，请刷新页面重新登录" };
         }
@@ -44,7 +69,6 @@
     }[c]));
   }
 
-  /* 回收站角标增减 */
   function adjustBadge(delta) {
     const nav = document.querySelector('.nav a[href="/recycle/"]');
     if (!nav) return;
@@ -60,15 +84,13 @@
     else b.textContent = n;
   }
 
-  /* ---------- 通用弹窗：确认 / 输入（替代 confirm / prompt） ---------- */
+  /* ---------- 通用弹窗：确认 / 输入 ---------- */
   const modal = document.getElementById("modal");
   const modalTitle = document.getElementById("modalTitle");
   const modalBody = document.getElementById("modalBody");
   const modalInputWrap = document.getElementById("modalInputWrap");
   const modalInput = document.getElementById("modalInput");
   const modalOk = document.getElementById("modalOk");
-  const modalCancel = document.getElementById("modalCancel");
-  const modalMask = document.getElementById("modalMask");
   let modalResolver = null;
 
   function closeModal(result) {
@@ -78,7 +100,6 @@
     if (r) r(result);
   }
 
-  // 返回：确认 = true，取消 = null
   function confirmDialog(title, message, opts) {
     opts = opts || {};
     modalTitle.textContent = title || "确认操作";
@@ -90,7 +111,6 @@
     return new Promise((res) => { modalResolver = res; });
   }
 
-  // 返回：输入的字符串（可能为空串），取消 = null
   function promptDialog(title, message, value) {
     modalTitle.textContent = title || "请输入";
     modalBody.textContent = message || "";
@@ -99,40 +119,89 @@
     modalOk.textContent = "保存";
     modalOk.className = "btn btn-primary";
     modal.hidden = false;
-    setTimeout(() => modalInput.focus(), 40);
+    setTimeout(() => modalInput.focus(), 60);
     return new Promise((res) => { modalResolver = res; });
   }
 
-  if (modal) {
-    modalOk.addEventListener("click", () => {
-      closeModal(modalInputWrap.hidden ? true : modalInput.value);
-    });
-    modalCancel.addEventListener("click", () => closeModal(null));
-    modalMask.addEventListener("click", () => closeModal(null));
-    modalInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") closeModal(modalInput.value);
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !modal.hidden) closeModal(null);
-    });
+  modalOk.addEventListener("click", () => closeModal(modalInputWrap.hidden ? true : modalInput.value));
+  document.getElementById("modalCancel").addEventListener("click", () => closeModal(null));
+  document.getElementById("modalMask").addEventListener("click", () => closeModal(null));
+  modalInput.addEventListener("keydown", (e) => { if (e.key === "Enter") closeModal(modalInput.value); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (!modal.hidden) closeModal(null);
+      if (!cloudModal.hidden) closeCloudModal();
+    }
+  });
+
+  /* ---------- 云端删除（独立入口） ---------- */
+  const cloudBtn = document.getElementById("cloudDeleteBtn");
+  const cloudModal = document.getElementById("cloudModal");
+  const cloudKey = document.getElementById("cloudKey");
+  const cloudSubmit = document.getElementById("cloudDeleteSubmit");
+
+  function openCloudModal() {
+    cloudKey.value = "";
+    cloudModal.hidden = false;
+    setTimeout(() => cloudKey.focus(), 60);
   }
+  function closeCloudModal() { cloudModal.hidden = true; }
+
+  cloudBtn.addEventListener("click", openCloudModal);
+  cloudModal.querySelectorAll("[data-close-cloud]").forEach((el) => {
+    el.addEventListener("click", closeCloudModal);
+  });
+  cloudKey.addEventListener("keydown", (e) => { if (e.key === "Enter") cloudSubmit.click(); });
+
+  cloudSubmit.addEventListener("click", async () => {
+    const key = cloudKey.value.trim();
+    if (!key) { toast("请填写七牛云对象名", "error"); cloudKey.focus(); return; }
+
+    const go = await confirmDialog(
+      "删除七牛云端文件",
+      "即将从七牛云删除：\n" + key + "\n此操作不可撤销，云端文件将立即消失。",
+      { confirmText: "删除", danger: true }
+    );
+    if (!go) return;
+
+    cloudSubmit.disabled = true;
+    cloudSubmit.textContent = "删除中…";
+    const resp = await post("/delete_remote", new URLSearchParams({ key }));
+    cloudSubmit.disabled = false;
+    cloudSubmit.textContent = "删除";
+
+    if (resp.ok) {
+      toast("已从七牛云删除：" + key, "success");
+      closeCloudModal();
+      // 若当前列表里正好有这张，同步移除；synced 表示本地记录也进了回收站
+      const card = document.querySelector('#gallery .card[data-key="' + CSS.escape(key) + '"]');
+      if (card) { card.remove(); if (resp.synced) adjustBadge(1); refreshBulk(); maybeEmpty(); }
+      else if (resp.synced) { adjustBadge(1); }
+    } else {
+      toast(resp.error || "删除失败", "error");
+    }
+  });
 
   /* ---------- 批量选择 ---------- */
   const bulkBar = document.getElementById("bulkBar");
   const selectAll = document.getElementById("selectAll");
   const pickCount = document.getElementById("pickCount");
 
-  function boxes() {
-    return Array.from(document.querySelectorAll(".pick-box"));
-  }
-  function checkedBoxes() {
-    return boxes().filter((b) => b.checked);
+  function boxes() { return Array.from(document.querySelectorAll(".pick-box")); }
+  function checkedBoxes() { return boxes().filter((b) => b.checked); }
+
+  function _visible(boxesArr) {
+    return boxesArr.filter((b) => {
+      const card = b.closest(".card");
+      return !card || card.style.display !== "none";
+    });
   }
   function refreshBulk() {
     if (!bulkBar) return;
-    const total = boxes().length;
-    const n = checkedBoxes().length;
+    const total = _visible(boxes()).length;
+    const n = _visible(checkedBoxes()).length;
     if (pickCount) pickCount.textContent = "已选 " + n + " 张";
+    bulkBar.hidden = n === 0;          // 有勾选才显示批量条（修复：之前漏了这一行）
     if (selectAll) {
       selectAll.checked = total > 0 && n === total;
       selectAll.indeterminate = n > 0 && n < total;
@@ -148,32 +217,24 @@
     if (e.target.id === "selectAll") {
       const on = e.target.checked;
       boxes().forEach((b) => {
-        b.checked = on;
         const card = b.closest(".card");
+        if (card && card.style.display === "none") return;  // 跳过被搜索过滤隐藏的
+        b.checked = on;
         if (card) card.classList.toggle("picked", on);
       });
       refreshBulk();
     }
   });
 
-  /* 列表里一张卡片都不剩时，刷新以显示空状态 */
   function maybeEmpty() {
     const g = document.getElementById("gallery");
     if (g && !g.querySelector(".card")) location.reload();
   }
 
-  function removeCards(nodes) {
-    nodes.forEach((c) => c.remove());
-  }
-
-  /* 重新渲染某张卡片的标签 chips */
   function renderChips(card, tagsStr) {
     const box = card.querySelector(".card-tags");
     if (!box) return;
-    const names = String(tagsStr || "")
-      .split(/[,，、\s]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const names = String(tagsStr || "").split(/[,，、\s]+/).map((s) => s.trim()).filter(Boolean);
     box.innerHTML = names.length
       ? names.map((n) => '<span class="chip">' + escapeHtml(n) + "</span>").join("")
       : '<span class="chip chip-empty">未分类</span>';
@@ -186,149 +247,184 @@
       .join(", ");
   }
 
-  /* ---------- 上传：预览 + 提交 ---------- */
-  const dropzone = document.getElementById("dropzone");
-  const fileInput = document.getElementById("fileInput");
-  const preview = document.getElementById("preview");
+  /* ---------- 上传：整页拖拽 + 底部队列 ---------- */
+  const dock = document.getElementById("uploadDock");
+  const dockList = document.getElementById("dockList");
+  const dockCount = document.getElementById("dockCount");
   const uploadBtn = document.getElementById("uploadBtn");
   const clearBtn = document.getElementById("clearBtn");
   const uploadStatus = document.getElementById("uploadStatus");
   const tagInput = document.getElementById("tagInput");
+  const dropOverlay = document.getElementById("dropOverlay");
+  const uploadTrigger = document.getElementById("uploadTrigger");
 
-  let selected = []; // { file, url, el, name }
+  // 隐藏的 file input（由 JS 创建，页面里不留 DOM 噪音）
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = "image/*";
+  fileInput.multiple = true;
+  fileInput.hidden = true;
+  document.body.appendChild(fileInput);
 
-  function addPreview(file) {
+  let queue = [];      // { file, url, el, name }
+
+  function addToQueue(file) {
+    if (!file.type.startsWith("image/")) return;
     const url = URL.createObjectURL(file);
     const item = document.createElement("div");
-    item.className = "preview-item";
+    item.className = "dock-item";
     item.innerHTML =
-      '<img src="' + url + '" alt="">' +
-      '<button class="rm" type="button" title="移除">×</button>' +
-      '<div class="pv-name">' + escapeHtml(file.name) + "</div>" +
-      '<div class="pv-status" hidden></div>';
-    preview.appendChild(item);
-    const entry = { file, url, el: item, name: file.name };
-    selected.push(entry);
+      '<div class="dock-thumb"><img src="' + url + '" alt=""></div>' +
+      '<button class="dock-rm" type="button" title="移除" aria-label="移除">×</button>' +
+      '<div class="dock-status" hidden></div>' +
+      '<div class="dock-name" title="' + escapeHtml(file.name) + '">' + escapeHtml(file.name) + "</div>";
+    dockList.appendChild(item);
 
-    item.querySelector(".rm").addEventListener("click", () => removePreview(entry));
-    refreshUploadBtn();
+    const entry = { file, url, el: item, name: file.name };
+    queue.push(entry);
+    item.querySelector(".dock-rm").addEventListener("click", () => removeFromQueue(entry));
+    refreshDock();
   }
 
-  function removePreview(entry) {
+  function removeFromQueue(entry) {
     URL.revokeObjectURL(entry.url);
     entry.el.remove();
-    selected = selected.filter((e) => e !== entry);
-    refreshUploadBtn();
+    queue = queue.filter((e) => e !== entry);
+    refreshDock();
   }
 
-  function refreshUploadBtn() {
-    if (!uploadBtn) return;
-    const n = selected.length;
-    uploadBtn.disabled = n === 0;
-    uploadBtn.textContent = n ? "上传到七牛云（" + n + "）" : "上传到七牛云";
-    if (clearBtn) clearBtn.hidden = n === 0;
+  function refreshDock() {
+    if (!dock) return;
+    const n = queue.length;
+    dockCount.textContent = n;
+    dock.hidden = n === 0;
+    if (uploadBtn) uploadBtn.disabled = n === 0;
   }
 
-  if (dropzone) {
-    dropzone.addEventListener("click", () => fileInput.click());
-    dropzone.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      dropzone.classList.add("dragover");
-    });
-    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
-    dropzone.addEventListener("drop", (e) => {
-      e.preventDefault();
-      dropzone.classList.remove("dragover");
-      Array.from(e.dataTransfer.files).forEach(addPreview);
-    });
-    fileInput.addEventListener("change", () => {
-      Array.from(fileInput.files).forEach(addPreview);
-      fileInput.value = "";
-    });
+  if (uploadTrigger) uploadTrigger.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => {
+    Array.from(fileInput.files).forEach(addToQueue);
+    fileInput.value = "";
+  });
+
+  document.getElementById("dockClose").addEventListener("click", () => {
+    queue.slice().forEach(removeFromQueue);
+  });
+
+  // 整页拖拽
+  let dragDepth = 0;
+  function hasFiles(e) {
+    return e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
   }
+  window.addEventListener("dragenter", (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    dropOverlay.hidden = false;
+  });
+  window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+  window.addEventListener("dragleave", (e) => {
+    if (!hasFiles(e)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) dropOverlay.hidden = true;
+  });
+  window.addEventListener("drop", (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth = 0;
+    dropOverlay.hidden = true;
+    Array.from(e.dataTransfer.files).forEach(addToQueue);
+  });
 
   if (uploadBtn) {
     uploadBtn.addEventListener("click", async () => {
-      if (!selected.length) return;
+      if (!queue.length) return;
       uploadBtn.disabled = true;
       const tags = tagInput ? tagInput.value : "";
-      let done = 0, ok = 0, fail = 0;
-      for (const entry of selected.slice()) {
+      let ok = 0, fail = 0;
+
+      for (const entry of queue.slice()) {
         const fd = new FormData();
         fd.append("file", entry.file);
         if (tags) fd.append("tags", tags);
-        const status = entry.el.querySelector(".pv-status");
+        const status = entry.el.querySelector(".dock-status");
         status.hidden = false;
         status.textContent = "上传中…";
         try {
           const resp = await post("/upload", fd);
           if (resp.ok) {
             ok++;
-            entry.el.remove();
             URL.revokeObjectURL(entry.url);
-            selected = selected.filter((e) => e !== entry);
-            prependCard(resp);
+            entry.el.remove();
+            queue = queue.filter((e) => e !== entry);
+            if (isIndex) prependCard(resp);
           } else {
             fail++;
             entry.el.classList.add("failed");
             status.textContent = "✕ " + (resp.error || "失败");
           }
-        } catch (e) {
+        } catch (err) {
           fail++;
           entry.el.classList.add("failed");
           status.textContent = "✕ 网络错误";
         }
-        done++;
-        uploadStatus.textContent = "进度 " + done + "/" + (ok + fail + selected.length);
+        uploadStatus.textContent = `已处理 ${ok + fail} / ${ok + fail + queue.length}`;
       }
+
       if (ok) toast("成功上传 " + ok + " 张", "success");
-      if (fail) toast(fail + " 张上传失败，请查看预览区提示", "error");
+      if (fail) toast(fail + " 张上传失败，请查看队列中的提示", "error");
       uploadStatus.textContent = "";
-      refreshUploadBtn();
-      if (ok && tags) {
-        // 有新标签时刷新一次，让上方的标签筛选栏同步
-        setTimeout(() => location.reload(), 1200);
-      }
+      refreshDock();
+      if (ok && tags) setTimeout(() => location.reload(), 1200);
     });
   }
 
   if (clearBtn) {
-    clearBtn.addEventListener("click", () => selected.slice().forEach(removePreview));
+    clearBtn.addEventListener("click", () => queue.slice().forEach(removeFromQueue));
   }
 
-  /* 根据上传返回数据，拼一张与模板一致的卡片并插到列表最前 */
+  /* 新上传的卡片插到列表最前，结构与模板保持一致 */
   function prependCard(d) {
     const gallery = document.getElementById("gallery");
     if (!gallery) return;
     const empty = gallery.querySelector(".empty");
     if (empty) empty.remove();
-    const tags = (d.tags || []).length
-      ? (d.tags || []).map((n) => '<span class="chip">' + escapeHtml(n) + "</span>").join("")
+
+    const tags = (d.tags && d.tags.length)
+      ? d.tags.map((n) => '<span class="chip">' + escapeHtml(n) + "</span>").join("")
       : '<span class="chip chip-empty">未分类</span>';
+
     const card = document.createElement("article");
     card.className = "card";
     card.dataset.id = d.id;
     card.dataset.key = d.qiniu_key;
+    card.style.setProperty("--i", "0");
     card.innerHTML =
-      '<label class="pick" title="选择这张"><input type="checkbox" class="pick-box" value="' + d.id + '"></label>' +
-      '<div class="thumb"><img src="' + escapeHtml(d.thumb_url || d.cdn_url) + '" alt="' + escapeHtml(d.original_name) + '" loading="lazy"></div>' +
-      '<div class="card-body">' +
-      '<div class="card-name" title="' + escapeHtml(d.original_name) + '">' + escapeHtml(d.original_name) + "</div>" +
-      '<div class="card-key" title="' + escapeHtml(d.qiniu_key) + '">' + escapeHtml(d.qiniu_key) + "</div>" +
-      '<div class="card-tags">' + tags + "</div>" +
-      '<div class="card-meta"><span>' + formatBytes(d.size) + "</span><span>" + escapeHtml(d.uploaded_at) + "</span></div>" +
-      '<div class="card-url"><input class="url-input" readonly value="' + escapeHtml(d.cdn_url) + '">' +
-      '<button class="btn btn-sm copy-btn" type="button">复制</button></div>' +
-      '<div class="card-actions">' +
-      '<button class="btn btn-sm tag-btn" type="button">标签</button>' +
-      '<a class="btn btn-sm" href="' + escapeHtml(d.cdn_url) + '" target="_blank" rel="noopener">查看</a>' +
-      '<button class="btn btn-sm btn-danger delete-btn" type="button">删除</button></div>' +
-      "</div>";
+      '<div class="card-media">' +
+        '<img src="' + escapeHtml(d.thumb_url || d.cdn_url) + '" alt="' + escapeHtml(d.original_name) + '" loading="lazy">' +
+        '<label class="card-pick" title="选择这张"><input type="checkbox" class="pick-box" value="' + d.id + '"></label>' +
+        '<div class="card-hover">' +
+          '<a class="btn btn-sm" href="' + escapeHtml(d.cdn_url) + '" target="_blank" rel="noopener" title="查看原图" aria-label="查看原图">' + ICON_EYE + '</a>' +
+          '<button class="btn btn-sm tag-btn" type="button" title="改标签" aria-label="改标签">' + ICON_TAG + '</button>' +
+          '<button class="btn btn-sm btn-danger delete-btn" type="button" title="删除" aria-label="删除">' + ICON_TRASH + '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card-info">' +
+        '<div class="card-name" title="' + escapeHtml(d.original_name) + '">' + escapeHtml(d.original_name) + '</div>' +
+        '<div class="card-key" title="' + escapeHtml(d.qiniu_key) + '">' + escapeHtml(d.qiniu_key) + '</div>' +
+        '<div class="card-url">' +
+          '<input readonly value="' + escapeHtml(d.cdn_url) + '" aria-label="CDN 链接" title="' + escapeHtml(d.cdn_url) + '">' +
+          '<button class="btn btn-sm copy-btn" type="button" title="复制链接" aria-label="复制链接">' + ICON_COPY + '</button>' +
+        '</div>' +
+        '<div class="card-meta"><span>' + formatBytes(d.size) + '</span><span class="sep">·</span><span>' + formatWhen(d.uploaded_at) + '</span></div>' +
+        '<div class="card-tags">' + tags + '</div>' +
+      '</div>';
+
     gallery.prepend(card);
     refreshBulk();
   }
 
-  /* ---------- 图库 / 回收站：卡片操作（事件委托） ---------- */
+  /* ---------- 卡片操作（事件委托） ---------- */
   const gallery = document.getElementById("gallery");
 
   if (gallery) {
@@ -340,7 +436,7 @@
       const purgeBtn = e.target.closest(".purge-btn");
 
       if (copyBtn) {
-        const input = copyBtn.parentElement.querySelector(".url-input");
+        const input = copyBtn.closest(".card-url").querySelector("input");
         try {
           await navigator.clipboard.writeText(input.value);
           toast("已复制 CDN 链接", "success");
@@ -383,12 +479,8 @@
         params.append("id", card.dataset.id);
         params.append("tags", val);
         const resp = await post("/set_tags", params);
-        if (resp.ok) {
-          renderChips(card, val);
-          toast("标签已更新", "success");
-        } else {
-          toast(resp.error || "更新失败", "error");
-        }
+        if (resp.ok) { renderChips(card, val); toast("标签已更新", "success"); }
+        else toast(resp.error || "更新失败", "error");
         return;
       }
 
@@ -455,10 +547,7 @@
       params.append("tags", val);
       const resp = await post("/set_tags", params);
       if (resp.ok) {
-        picked.forEach((b) => {
-          const card = b.closest(".card");
-          if (card) renderChips(card, val);
-        });
+        picked.forEach((b) => { const c = b.closest(".card"); if (c) renderChips(c, val); });
         toast("已更新 " + resp.updated + " 张图片的标签", "success");
       } else {
         toast(resp.error || "更新失败", "error");
@@ -480,8 +569,7 @@
       picked.forEach((b) => params.append("id", b.value));
       const resp = await post("/delete_batch", params);
       if (resp.ok) {
-        const cards = picked.map((b) => b.closest(".card")).filter(Boolean);
-        removeCards(cards);
+        picked.map((b) => b.closest(".card")).filter(Boolean).forEach((c) => c.remove());
         adjustBadge(resp.deleted);
         let msg = "已删除 " + resp.deleted + " 张并移入回收站";
         if (resp.failed && resp.failed.length) {
@@ -514,7 +602,7 @@
       picked.forEach((b) => params.append("id", b.value));
       const resp = await post("/recycle/restore_batch", params);
       if (resp.ok) {
-        removeCards(picked.map((b) => b.closest(".card")).filter(Boolean));
+        picked.map((b) => b.closest(".card")).filter(Boolean).forEach((c) => c.remove());
         let msg = "已恢复 " + resp.restored + " 张";
         if (resp.failed && resp.failed.length) {
           msg += "；" + resp.failed.length + " 张失败：" + resp.failed[0].error;
@@ -542,7 +630,7 @@
       picked.forEach((b) => params.append("id", b.value));
       const resp = await post("/recycle/purge_batch", params);
       if (resp.ok) {
-        removeCards(picked.map((b) => b.closest(".card")).filter(Boolean));
+        picked.map((b) => b.closest(".card")).filter(Boolean).forEach((c) => c.remove());
         toast("已彻底删除 " + resp.purged + " 张", "success");
         refreshBulk();
         maybeEmpty();
@@ -552,34 +640,27 @@
     });
   }
 
-  /* ---------- 按对象名直接删除 ---------- */
-  const deleteByName = document.getElementById("deleteByName");
-  if (deleteByName) {
-    deleteByName.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const key = deleteByName.key.value.trim();
-      if (!key) return;
-      const go = await confirmDialog(
-        "按对象名删除",
-        "即将删除七牛云对象：\n" + key + "\n会从七牛云移除，本地文件转入回收站。",
-        { confirmText: "删除", danger: true }
-      );
-      if (!go) return;
-      const resp = await post("/delete", new URLSearchParams({ key }));
-      if (resp.ok) {
-        toast("已删除并移入回收站", "success");
-        deleteByName.reset();
-        const card = gallery && gallery.querySelector('.card[data-key="' + CSS.escape(key) + '"]');
-        if (card) {
-          card.remove();
-          adjustBadge(1);
-          refreshBulk();
-        }
-      } else {
-        toast(resp.error || "删除失败", "error");
-      }
-    });
-  }
-
   refreshBulk();
+
+  /* ---------- 实时搜索过滤（前端即时筛选已渲染卡片） ---------- */
+  const searchInput = document.querySelector(".search input");
+  const noMatch = document.getElementById("noMatch");
+  function applyFilter() {
+    if (!gallery) return;
+    const q = (searchInput ? searchInput.value : "").trim().toLowerCase();
+    let visible = 0;
+    gallery.querySelectorAll(".card").forEach((card) => {
+      const name = (card.querySelector(".card-name")?.textContent || "").toLowerCase();
+      const key = (card.querySelector(".card-key")?.textContent || "").toLowerCase();
+      const hit = !q || name.includes(q) || key.includes(q);
+      card.style.display = hit ? "" : "none";
+      if (hit) visible++;
+    });
+    if (noMatch) noMatch.hidden = !(q && visible === 0);
+    refreshBulk();   // 过滤后重新计算批量计数（只算可见卡片）
+  }
+  if (searchInput) {
+    searchInput.addEventListener("input", applyFilter);
+    if (searchInput.value) applyFilter();   // 处理刷新后浏览器回填的搜索词
+  }
 })();

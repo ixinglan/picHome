@@ -17,6 +17,7 @@ urlpatterns = [
     path("upload", views.upload, name="upload"),
     path("delete", views.delete_asset, name="delete"),
     path("delete_batch", views.delete_batch, name="delete_batch"),
+    path("delete_remote", views.delete_remote, name="delete_remote"),
     path("set_tags", views.set_tags, name="set_tags"),
 
     # 回收站接口

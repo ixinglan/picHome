@@ -71,6 +71,27 @@ def delete_file(key: str) -> None:
     raise RuntimeError(f"七牛云删除失败（{info.status_code}）：{info.text_body}")
 
 
+def delete_file_strict(key: str) -> str:
+    """
+    直接从七牛云删除指定 key，不关心本地是否存在对应记录。
+
+    返回：
+      "deleted" —— 云端存在并已删除
+      "missing" —— 云端本来就没有这个对象（HTTP 612）
+
+    其他错误抛 RuntimeError。
+    """
+    ak, sk, bucket = _check_config()
+    auth = Auth(ak, sk)
+    bucket_mgr = BucketManager(auth)
+    ret, info = bucket_mgr.delete(bucket, key)
+    if info.ok():
+        return "deleted"
+    if info.status_code == 612:
+        return "missing"
+    raise RuntimeError(f"七牛云删除失败（{info.status_code}）：{info.text_body}")
+
+
 def public_url(key: str) -> str:
     """把七牛云 key 拼成可访问的 CDN 链接。"""
     domain = settings.QINIU_DOMAIN.rstrip("/")

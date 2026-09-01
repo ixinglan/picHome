@@ -7,27 +7,92 @@
   {% load static %}
   <link rel="stylesheet" href="{% static 'gallery/css/style.css' %}">
   <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="color-scheme" content="light dark">
+  {# 先于渲染确定主题，避免深色模式闪白 #}
+  <script>
+    (function () {
+      try {
+        var KEY = "qg-theme";
+        var t = localStorage.getItem(KEY) || "auto";   // 默认跟随系统
+        var mq = window.matchMedia("(prefers-color-scheme: dark)");
+        var eff = (t === "auto") ? (mq.matches ? "dark" : "light") : t;
+        document.documentElement.setAttribute("data-theme", eff);
+      } catch (e) {}
+    })();
+  </script>
 </head>
-<body>
+<body data-page="{% block page_id %}index{% endblock %}">
+
   <header class="topbar">
-    <div class="brand">
-      <span class="logo">◧</span>
-      <span class="brand-name">七牛云图库</span>
-    </div>
-
-    <nav class="nav">
-      <a href="{% url 'gallery:index' %}" class="{% if request.path == '/' %}active{% endif %}">图库</a>
-      <a href="{% url 'gallery:recycle' %}" class="{% if '/recycle' in request.path %}active{% endif %}">
-        回收站{% if deleted_count %}<span class="badge">{{ deleted_count }}</span>{% endif %}
+    <div class="topbar-inner">
+      <a class="brand" href="{% url 'gallery:index' %}">
+        <span class="brand-mark" aria-hidden="true">◧</span>
+        <span class="brand-text">七牛云<em>图库</em></span>
       </a>
-    </nav>
 
-    <div class="user-area">
-      <span class="user-name" title="{{ user.username }}">{{ user.username }}</span>
-      <form method="post" action="{% url 'gallery:logout' %}">
-        {% csrf_token %}
-        <button class="btn btn-sm btn-ghost" type="submit">退出</button>
-      </form>
+      {% if user.is_authenticated %}
+      <nav class="nav">
+        <a href="{% url 'gallery:index' %}" class="nav-link {% if request.path == '/' %}is-active{% endif %}">
+          <span class="label">图库</span>
+        </a>
+        <a href="{% url 'gallery:recycle' %}" class="nav-link {% if '/recycle' in request.path %}is-active{% endif %}">
+          <span class="label">回收站</span>
+          {% if deleted_count %}<span class="badge">{{ deleted_count }}</span>{% endif %}
+        </a>
+      </nav>
+      {% endif %}
+
+      <div class="topbar-actions">
+        {# 各页自有的主操作（如上传按钮） #}
+        {% block topbar_actions %}{% endblock %}
+
+        {# 云端删除：直接删七牛云对象，不依赖本地记录 #}
+        {% if user.is_authenticated %}
+        <button class="icon-btn" id="cloudDeleteBtn" type="button" title="按对象名删除七牛云端文件" aria-label="按对象名删除七牛云端文件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17.5 19H7a4 4 0 0 1-.6-7.96A6 6 0 0 1 17.9 9.5h.1a3.5 3.5 0 0 1 .5 6.96"/>
+            <path d="M10 13.5 14 17.5M14 13.5 10 17.5"/>
+          </svg>
+        </button>
+        {% endif %}
+
+        <div class="theme-switch" role="group" aria-label="主题切换">
+          <button class="theme-opt" type="button" data-theme-val="light" title="浅色" aria-label="浅色主题">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>
+            </svg>
+          </button>
+          <button class="theme-opt" type="button" data-theme-val="dark" title="深色" aria-label="深色主题">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/>
+            </svg>
+          </button>
+          <button class="theme-opt" type="button" data-theme-val="auto" title="跟随系统" aria-label="跟随系统主题">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+              <path d="M21 3v5h-5"/>
+              <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+              <path d="M3 21v-5h5"/>
+            </svg>
+          </button>
+        </div>
+
+        {% if user.is_authenticated %}
+        <div class="user">
+          <span class="user-name" title="{{ user.username }}">{{ user.username }}</span>
+          <form method="post" action="{% url 'gallery:logout' %}">
+            {% csrf_token %}
+            <button class="icon-btn" type="submit" title="退出登录" aria-label="退出登录">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/>
+                <path d="M10 17l-5-5 5-5M5 12h10"/>
+              </svg>
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
     </div>
   </header>
 
@@ -35,7 +100,60 @@
     {% block content %}{% endblock %}
   </main>
 
-  <!-- 通用弹窗：确认 / 输入（替代浏览器原生 confirm / prompt） -->
+  {# ===== 整页拖拽上传覆盖层 ===== #}
+  <div class="drop-overlay" id="dropOverlay" hidden>
+    <div class="drop-overlay-inner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 16V4m0 0L8 8m4-4 4 4"/>
+        <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+      </svg>
+      <div class="drop-overlay-title">松开即可上传</div>
+      <div class="drop-overlay-sub">图片会上传到七牛云，本地同时留一份到回收站可恢复</div>
+    </div>
+  </div>
+
+  {# ===== 底部上传队列（浮动，不占主区） ===== #}
+  <div class="dock" id="uploadDock" hidden>
+    <div class="dock-head">
+      <div class="dock-title">待上传 <span id="dockCount">0</span> 张</div>
+      <button class="icon-btn dock-close" id="dockClose" type="button" title="关闭" aria-label="关闭上传队列">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="dock-list" id="dockList"></div>
+    <div class="dock-foot">
+      <input id="tagInput" type="text" placeholder="标签（可选），多个用逗号分隔">
+      <button class="btn btn-primary" id="uploadBtn">开始上传</button>
+      <button class="btn btn-ghost" id="clearBtn">清空</button>
+    </div>
+    <p class="visually-hidden" id="uploadStatus" role="status" aria-live="polite"></p>
+  </div>
+
+  {# ===== 云端删除：独立入口 ===== #}
+  <div class="modal" id="cloudModal" hidden>
+    <div class="modal-mask" data-close-cloud></div>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="cloudTitle">
+      <button class="modal-close" type="button" data-close-cloud aria-label="关闭">×</button>
+      <h3 class="modal-title" id="cloudTitle">删除七牛云端文件</h3>
+      <p class="modal-body">
+        直接按对象名删除七牛云上的文件，<strong>不校验本地是否存在</strong>。
+        存在即删除，不存在会提示。此操作不可撤销。
+      </p>
+      <div class="modal-input">
+        <input id="cloudKey" class="modal-field" type="text" autocomplete="off" spellcheck="false"
+               placeholder="img/20260901_175700_123_ab12.jpg">
+        <p class="modal-hint">对象名可在图片卡片上查看，或到七牛云控制台空间里复制。</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-close-cloud>取消</button>
+        <button class="btn btn-danger-solid" id="cloudDeleteSubmit" type="button">删除</button>
+      </div>
+    </div>
+  </div>
+
+  {# ===== 通用弹窗：确认 / 输入 ===== #}
   <div class="modal" id="modal" hidden>
     <div class="modal-mask" id="modalMask"></div>
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -43,7 +161,7 @@
       <div class="modal-body" id="modalBody"></div>
       <div class="modal-input" id="modalInputWrap" hidden>
         <input id="modalInput" class="modal-field" type="text" autocomplete="off">
-        <p class="muted modal-hint">多个标签用逗号或空格分隔</p>
+        <p class="modal-hint">多个标签用逗号或空格分隔</p>
       </div>
       <div class="modal-actions">
         <button class="btn" id="modalCancel" type="button">取消</button>
@@ -53,6 +171,47 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    /* 主题切换：浅色 / 深色 / 跟随系统（auto 实时监听系统偏好） */
+    (function () {
+      var opts = document.querySelectorAll(".theme-opt");
+      if (opts.length === 0) return;
+      var KEY = "qg-theme";
+      var mq = window.matchMedia("(prefers-color-scheme: dark)");
+      function getStored() {
+        try { return localStorage.getItem(KEY) || "auto"; } catch (e) { return "auto"; }
+      }
+      function effective(val) {
+        return val === "auto" ? (mq.matches ? "dark" : "light") : val;
+      }
+      function applyTheme(val) {
+        document.documentElement.setAttribute("data-theme", effective(val));
+        try { localStorage.setItem(KEY, val); } catch (e) {}
+      }
+      function sync() {
+        var val = getStored();
+        opts.forEach(function (o) {
+          var on = o.dataset.themeVal === val;
+          o.classList.toggle("is-active", on);
+          o.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+      }
+      /* auto 模式下，系统切换深色/浅色时实时跟随 */
+      if (mq.addEventListener) {
+        mq.addEventListener("change", function () {
+          if (getStored() === "auto") applyTheme("auto");
+        });
+      }
+      opts.forEach(function (o) {
+        o.addEventListener("click", function () {
+          applyTheme(o.dataset.themeVal);
+          sync();
+        });
+      });
+      sync();
+    })();
+  </script>
 
   {% block scripts %}{% endblock %}
 </body>

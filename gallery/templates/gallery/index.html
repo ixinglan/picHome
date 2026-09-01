@@ -1,122 +1,152 @@
 {% extends 'gallery/base.html' %}
 {% load static %}
 {% block title %}图库 · 七牛云图库{% endblock %}
+{% block page_id %}index{% endblock %}
+
+{# 顶栏主操作：上传入口收在这里，不再占用页面主体 #}
+{% block topbar_actions %}
+  <button class="btn btn-primary" id="uploadTrigger" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 16V4m0 0L8 8m4-4 4 4"/>
+      <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+    </svg>
+    上传
+  </button>
+{% endblock %}
 
 {% block content %}
   {% if not qiniu_configured %}
-    <div class="alert">
-      ⚠️ 七牛云尚未配置，上传会被拒绝。请在项目根目录 <code>.env</code> 中填写
-      <code>QINIU_ACCESS_KEY / QINIU_SECRET_KEY / QINIU_BUCKET / QINIU_DOMAIN</code> 后重启服务。
+    <div class="notice">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>
+        <path d="M12 9v4M12 17h.01"/>
+      </svg>
+      <div>
+        七牛云尚未配置，上传会被拒绝。请在项目根目录 <code>.env</code> 中填写
+        <code>QINIU_ACCESS_KEY / QINIU_SECRET_KEY / QINIU_BUCKET / QINIU_DOMAIN</code> 后重启服务。
+      </div>
     </div>
   {% endif %}
 
-  <!-- 上传区 -->
-  <section class="upload-card">
-    <h2 class="section-title">上传图片</h2>
-    <div id="dropzone" class="dropzone">
-      <input type="file" id="fileInput" accept="image/*" multiple hidden>
-      <div class="dz-inner">
-        <div class="dz-icon">⬆</div>
-        <p class="dz-main">点击选择，或将图片拖拽到此处</p>
-        <p class="muted">支持 jpg / png / gif / webp / bmp / heic / svg，可多选</p>
+  <div class="toolbar">
+    <div class="toolbar-row">
+      <form class="search" method="get">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+        </svg>
+        <input type="search" id="searchInput" name="q" value="{{ q }}" placeholder="搜索图片名或七牛云对象名…" autocomplete="off" aria-label="搜索图片">
+        {% if active_tag %}<input type="hidden" name="tag" value="{{ active_tag }}">{% endif %}
+      </form>
+
+      <div class="toolbar-meta">
+        <span class="count"><strong>{{ images|length }}</strong> 张</span>
+        {% if q or active_tag %}
+          <a class="btn btn-ghost btn-sm" href="{% url 'gallery:index' %}">清除筛选</a>
+        {% endif %}
       </div>
     </div>
 
-    <div id="preview" class="preview-grid"></div>
+    {% if tags %}
+      <div class="tagbar">
+        <span class="tagbar-label">标签</span>
+        <a class="chip {% if not active_tag %}is-on{% endif %}" href="{% url 'gallery:index' %}">全部</a>
+        {% for t in tags %}
+          <a class="chip {% if active_tag == t.name %}is-on{% endif %}"
+             href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}tag={{ t.name|urlencode }}">
+            {{ t.name }}<em>{{ t.n }}</em>
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
 
-    <div class="upload-tags">
-      <input id="tagInput" type="text" placeholder="给这批图片打标签（可选），多个用逗号分隔，例如：风景, 旅行">
-    </div>
-
-    <div class="upload-actions">
-      <button id="uploadBtn" class="btn btn-primary" disabled>上传到七牛云</button>
-      <button id="clearBtn" class="btn btn-ghost" hidden>清空</button>
-      <span id="uploadStatus" class="muted"></span>
-    </div>
-  </section>
-
-  <!-- 标签筛选 -->
-  {% if tags %}
-    <div class="tag-filter">
-      <a class="chip chip-filter {% if not active_tag %}on{% endif %}" href="{% url 'gallery:index' %}">全部</a>
-      {% for t in tags %}
-        <a class="chip chip-filter {% if active_tag == t.name %}on{% endif %}"
-           href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}tag={{ t.name|urlencode }}">
-          {{ t.name }}<em>{{ t.n }}</em>
-        </a>
-      {% endfor %}
-    </div>
-  {% endif %}
-
-  <!-- 搜索 -->
-  <form method="get" class="search-bar">
-    <input type="search" name="q" value="{{ q }}" placeholder="搜索本地原名或七牛云对象名…" autocomplete="off">
-    {% if active_tag %}<input type="hidden" name="tag" value="{{ active_tag }}">{% endif %}
-    <button class="btn" type="submit">搜索</button>
-    {% if q %}<a class="btn btn-ghost" href="{% url 'gallery:index' %}">清除</a>{% endif %}
-  </form>
-
-  <!-- 批量操作条 -->
-  <div class="bulk-bar" id="bulkBar" hidden>
-    <label class="check"><input type="checkbox" id="selectAll"> <span>全选</span></label>
-    <span id="pickCount" class="pick-count">已选 0 张</span>
-    <div class="bulk-actions">
+  <div class="bulkbar" id="bulkBar" hidden>
+    <label class="check"><input type="checkbox" id="selectAll"> 全选</label>
+    <span class="bulkbar-count" id="pickCount">已选 0 张</span>
+    <div class="bulkbar-actions">
       <button class="btn btn-sm" id="bulkTagBtn" type="button">改标签</button>
       <button class="btn btn-sm btn-danger" id="bulkDeleteBtn" type="button">删除所选</button>
     </div>
   </div>
 
-  <!-- 图库 -->
-  <section class="gallery-section">
-    <div id="gallery" class="gallery-grid">
-      {% for img in images %}
-        <article class="card" data-id="{{ img.id }}" data-key="{{ img.qiniu_key }}">
-          <label class="pick" title="选择这张">
-            <input type="checkbox" class="pick-box" value="{{ img.id }}">
-          </label>
-          <div class="thumb">
-            <img src="{{ img.thumb_url }}" alt="{{ img.original_name }}" loading="lazy">
-          </div>
-          <div class="card-body">
-            <div class="card-name" title="{{ img.original_name }}">{{ img.original_name }}</div>
-            <div class="card-key" title="{{ img.qiniu_key }}">{{ img.qiniu_key }}</div>
-            <div class="card-tags">
-              {% for t in img.tags.all %}
-                <span class="chip">{{ t.name }}</span>
-              {% empty %}
-                <span class="chip chip-empty">未分类</span>
-              {% endfor %}
-            </div>
-            <div class="card-meta">
-              <span>{{ img.size|filesizeformat }}</span>
-              <span>{{ img.uploaded_at|date:"Y-m-d H:i" }}</span>
-            </div>
-            <div class="card-url">
-              <input class="url-input" readonly value="{{ img.cdn_url }}">
-              <button class="btn btn-sm copy-btn" type="button">复制</button>
-            </div>
-            <div class="card-actions">
-              <button class="btn btn-sm tag-btn" type="button">标签</button>
-              <a class="btn btn-sm" href="{{ img.cdn_url }}" target="_blank" rel="noopener">查看</a>
-              <button class="btn btn-sm btn-danger delete-btn" type="button">删除</button>
-            </div>
-          </div>
-        </article>
-      {% empty %}
-        <div class="empty">{% if q %}没有匹配「{{ q }}」的图片{% else %}还没有图片，先从上方上传吧～{% endif %}</div>
-      {% endfor %}
-    </div>
-  </section>
+  <div class="grid" id="gallery">
+    {% for img in images %}
+      <article class="card" data-id="{{ img.id }}" data-key="{{ img.qiniu_key }}" style="--i:{{ forloop.counter0 }}">
+        <div class="card-media">
+          <img src="{{ img.thumb_url }}" alt="{{ img.original_name }}" loading="lazy">
 
-  <!-- 按对象名直接删除 -->
-  <details class="direct-delete">
-    <summary>按七牛云对象名直接删除</summary>
-    <form id="deleteByName" class="search-bar">
-      <input name="key" placeholder="粘贴七牛云对象名，如 img/20260821_143052_883_ab12.jpg">
-      <button class="btn btn-danger" type="submit">删除</button>
-    </form>
-    <p class="muted">删除会同时从七牛云移除对象，本地文件转入回收站。</p>
-  </details>
+          <label class="card-pick" title="选择这张">
+            <input type="checkbox" class="pick-box" value="{{ img.id }}">
+            <span class="visually-hidden">选择 {{ img.original_name }}</span>
+          </label>
+
+          <div class="card-hover">
+            <a class="btn btn-sm" href="{{ img.cdn_url }}" target="_blank" rel="noopener" title="查看原图" aria-label="查看原图">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+            </a>
+            <button class="btn btn-sm tag-btn" type="button" title="改标签" aria-label="改标签">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 11V5a2 2 0 0 1 2-2h6l9 9-8 8-9-9Z"/><circle cx="7.5" cy="7.5" r="1.3"/>
+              </svg>
+            </button>
+            <button class="btn btn-sm btn-danger delete-btn" type="button" title="删除" aria-label="删除">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="card-info">
+          <div class="card-name" title="{{ img.original_name }}">{{ img.original_name }}</div>
+          <div class="card-key" title="{{ img.qiniu_key }}">{{ img.qiniu_key }}</div>
+
+          <div class="card-url">
+            <input readonly value="{{ img.cdn_url }}" aria-label="CDN 链接" title="{{ img.cdn_url }}">
+            <button class="btn btn-sm copy-btn" type="button" title="复制链接" aria-label="复制链接">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="card-meta">
+            <span>{{ img.size|filesizeformat }}</span>
+            <span class="sep">·</span>
+            <span>{{ img.uploaded_at|date:"n月j日 H:i" }}</span>
+          </div>
+
+          <div class="card-tags">
+            {% for t in img.tags.all %}
+              <span class="chip">{{ t.name }}</span>
+            {% empty %}
+              <span class="chip chip-empty">未分类</span>
+            {% endfor %}
+          </div>
+        </div>
+      </article>
+    {% empty %}
+      <div class="empty">
+        <div class="empty-mark" aria-hidden="true"></div>
+        <div class="empty-title">{% if q %}没找到匹配的图片{% else %}图库还是空的{% endif %}</div>
+        <p class="empty-text">
+          {% if q %}
+            换个关键词试试，或者清除筛选看看全部图片。
+          {% else %}
+            点右上角「上传」，或直接把图片拖进这个页面。上传后会显示七牛云的 CDN 链接。
+          {% endif %}
+        </p>
+      </div>
+    {% endfor %}
+
+    <div class="empty" id="noMatch" hidden>
+      <div class="empty-mark" aria-hidden="true"></div>
+      <div class="empty-title">没有匹配的图片</div>
+      <p class="empty-text">调整搜索关键词，或清除筛选看看全部图片。</p>
+    </div>
+  </div>
 {% endblock %}
 
 {% block scripts %}
