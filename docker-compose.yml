@@ -1,33 +1,36 @@
-# 七牛云图床管理工具 - Docker Compose 部署
+# picHome 图床管理工具 - Docker Compose 部署
 # 用法：
 #   docker compose up -d      # 后台启动
 #   docker compose logs -f    # 看日志
 #   docker compose down       # 停止并移除容器（数据卷保留）
-name: qiniu-gallery
+name: pichome
 
 services:
   web:
     build: .
-    container_name: qiniu-gallery
+    container_name: pichome-web
     # 宿主机端口:容器端口。容器内固定 8000（Gunicorn 监听），
-    # 前面这个 8080 是你在浏览器访问的端口，按需改即可。
+    # 前面这个 28080 是你在浏览器 / CLI 访问的端口，按需改即可（改了记得同步 PICHOME_API_URL）。
     ports:
       - "28080:8000"
-    # 读取宿主机上的 .env（含七牛云 AK/SK），只注入容器运行时，不会写进镜像
+    # 读取宿主机上的 .env（含图床密钥），只注入容器运行时，不会写进镜像
     env_file:
       - .env
     environment:
-      # 下面两项会覆盖 .env 里的同名配置，确保“生产环境”安全：
+      # 下面几项会覆盖 .env 里的同名配置，确保“生产环境”安全：
       DJANGO_DEBUG: "False"
       # 允许访问的 host。部署到服务器时，把你的域名 / 公网 IP 加到这里（逗号分隔）。
       # 例如：DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,img.example.com,1.2.3.4"
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
       # 数据库文件落到持久化卷目录（避免把命名卷直接挂到文件导致 SQLite 打不开）
       DJANGO_DB_PATH: "/app/data/db.sqlite3"
+      # 对外 API（/api/v1/upload，供 CLI / AI Agent 用）的令牌。
+      # 留空 = 不校验（仅建议本机使用）；填值后 CLI 必须带 --token 或 PICHOME_API_TOKEN。
+      # PICHOME_API_TOKEN: "换成一串随机字符串"
     volumes:
       # SQLite 数据库持久化：容器删了重建，数据也不丢
       - db_data:/app/data
-      # 本地媒体目录持久化（本项目图片实际存七牛云，这里基本为空，留着以防万一）
+      # 本地媒体目录持久化（原图落盘 + 回收站）
       - media_data:/app/media
     restart: unless-stopped
     healthcheck:
@@ -38,5 +41,7 @@ services:
       start_period: 20s
 
 volumes:
+  # 实际卷名带项目前缀：pichome_db_data / pichome_media_data
+  # （老部署如果是 qiniu-gallery_* 卷，迁移方式见 README「十一、Docker Compose 部署」）
   db_data:
   media_data:

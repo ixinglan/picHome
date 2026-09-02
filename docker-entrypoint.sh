@@ -12,6 +12,9 @@ else
     echo "   账号已存在，跳过初始化"
 fi
 
+echo "==> 初始化图床配置（仅当库里没有任何图床配置时，从 .env 的 QINIU_* 播种）"
+python manage.py initstorage
+
 echo "==> 收集静态文件（交由 Whitenoise 直接由 Gunicorn 提供，无需 Nginx）"
 python manage.py collectstatic --noinput
 
