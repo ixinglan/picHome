@@ -1,6 +1,6 @@
 {% extends 'gallery/base.html' %}
 {% load static %}
-{% block title %}图库 · 七牛云图库{% endblock %}
+{% block title %}图库 · picHome{% endblock %}
 {% block page_id %}index{% endblock %}
 
 {# 顶栏主操作：上传入口收在这里，不再占用页面主体 #}
@@ -15,15 +15,16 @@
 {% endblock %}
 
 {% block content %}
-  {% if not qiniu_configured %}
+  {% if not storage_configured %}
     <div class="notice">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>
         <path d="M12 9v4M12 17h.01"/>
       </svg>
       <div>
-        七牛云尚未配置，上传会被拒绝。请在项目根目录 <code>.env</code> 中填写
-        <code>QINIU_ACCESS_KEY / QINIU_SECRET_KEY / QINIU_BUCKET / QINIU_DOMAIN</code> 后重启服务。
+        尚未启用任何图床，上传会被拒绝。请点击右上角
+        <a href="{% url 'gallery:storage_settings' %}">⚙ 图床设置</a>
+        选择一个图床并填好必填项后启用（如七牛云 / 阿里云 OSS / 腾讯云 COS / GitHub）。
       </div>
     </div>
   {% endif %}
@@ -34,17 +35,31 @@
         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
           <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
         </svg>
-        <input type="search" id="searchInput" name="q" value="{{ q }}" placeholder="搜索图片名或七牛云对象名…" autocomplete="off" aria-label="搜索图片">
+        <input type="search" id="searchInput" name="q" value="{{ q }}" placeholder="搜索图片名或图床对象名…" autocomplete="off" aria-label="搜索图片">
         {% if active_tag %}<input type="hidden" name="tag" value="{{ active_tag }}">{% endif %}
+        {% if active_provider %}<input type="hidden" name="provider" value="{{ active_provider }}">{% endif %}
       </form>
 
       <div class="toolbar-meta">
         <span class="count"><strong>{{ images|length }}</strong> 张</span>
-        {% if q or active_tag %}
+        {% if q or active_tag or active_provider %}
           <a class="btn btn-ghost btn-sm" href="{% url 'gallery:index' %}">清除筛选</a>
         {% endif %}
       </div>
     </div>
+
+    {% if provider_choices %}
+      <div class="tagbar">
+        <span class="tagbar-label">图床</span>
+        <a class="chip {% if not active_provider %}is-on{% endif %}" href="{% url 'gallery:index' %}">全部</a>
+        {% for p in provider_choices %}
+          <a class="chip {% if active_provider == p.name %}is-on{% endif %}"
+             href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}provider={{ p.name|urlencode }}">
+            {{ p.display }}<em>{{ p.n }}</em>
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
 
     {% if tags %}
       <div class="tagbar">
@@ -52,7 +67,7 @@
         <a class="chip {% if not active_tag %}is-on{% endif %}" href="{% url 'gallery:index' %}">全部</a>
         {% for t in tags %}
           <a class="chip {% if active_tag == t.name %}is-on{% endif %}"
-             href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}tag={{ t.name|urlencode }}">
+             href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}{% if active_provider %}provider={{ active_provider|urlencode }}&amp;{% endif %}tag={{ t.name|urlencode }}">
             {{ t.name }}<em>{{ t.n }}</em>
           </a>
         {% endfor %}
@@ -71,7 +86,7 @@
 
   <div class="grid" id="gallery">
     {% for img in images %}
-      <article class="card" data-id="{{ img.id }}" data-key="{{ img.qiniu_key }}" style="--i:{{ forloop.counter0 }}">
+      <article class="card" data-id="{{ img.id }}" data-key="{{ img.object_key }}" style="--i:{{ forloop.counter0 }}">
         <div class="card-media">
           <img src="{{ img.thumb_url }}" alt="{{ img.original_name }}" loading="lazy">
 
@@ -79,6 +94,8 @@
             <input type="checkbox" class="pick-box" value="{{ img.id }}">
             <span class="visually-hidden">选择 {{ img.original_name }}</span>
           </label>
+
+          <span class="provider-badge" title="图床：{{ img.provider_display }}">{{ img.provider_display }}</span>
 
           <div class="card-hover">
             <a class="btn btn-sm" href="{{ img.cdn_url }}" target="_blank" rel="noopener" title="查看原图" aria-label="查看原图">
@@ -100,16 +117,38 @@
         </div>
 
         <div class="card-info">
-          <div class="card-name" title="{{ img.original_name }}">{{ img.original_name }}</div>
-          <div class="card-key" title="{{ img.qiniu_key }}">{{ img.qiniu_key }}</div>
-
-          <div class="card-url">
-            <input readonly value="{{ img.cdn_url }}" aria-label="CDN 链接" title="{{ img.cdn_url }}">
-            <button class="btn btn-sm copy-btn" type="button" title="复制链接" aria-label="复制链接">
+          <div class="card-name-row">
+            <div class="card-name" title="{{ img.original_name }}" data-full="{{ img.original_name }}">{{ img.original_name }}</div>
+            <button class="icon-btn copy-name-btn" type="button" title="复制图片名" aria-label="复制图片名">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>
               </svg>
             </button>
+          </div>
+          <div class="card-key" title="{{ img.object_key }}">{{ img.object_key }}</div>
+
+          <div class="card-links">
+            <div class="card-url">
+              <span class="url-label">CDN</span>
+              <input readonly value="{{ img.cdn_url }}" aria-label="CDN 链接" title="{{ img.cdn_url }}">
+              <button class="btn btn-sm copy-btn" type="button" title="复制链接" aria-label="复制链接">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+              </button>
+            </div>
+            <div class="card-url">
+              <span class="url-label">MD</span>
+              <input readonly value='![{{ img.original_name }}]({{ img.cdn_url }} "{{ img.original_name }}")' aria-label="Markdown 链接" title='![{{ img.original_name }}]({{ img.cdn_url }} "{{ img.original_name }}")'>
+              <button class="btn btn-sm copy-btn" type="button" title="复制 Markdown" aria-label="复制 Markdown">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+              </button>
+            </div>
+            <div class="card-url">
+              <span class="url-label">HTML</span>
+              <input readonly value='<img src="{{ img.cdn_url }}"/>' aria-label="HTML 链接" title='<img src="{{ img.cdn_url }}"/>'>
+              <button class="btn btn-sm copy-btn" type="button" title="复制 HTML" aria-label="复制 HTML">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+              </button>
+            </div>
           </div>
 
           <div class="card-meta">
@@ -135,7 +174,7 @@
           {% if q %}
             换个关键词试试，或者清除筛选看看全部图片。
           {% else %}
-            点右上角「上传」，或直接把图片拖进这个页面。上传后会显示七牛云的 CDN 链接。
+            点右上角「上传」，或直接把图片拖进这个页面。上传后会显示图床的访问链接与 Markdown / HTML 片段。
           {% endif %}
         </p>
       </div>

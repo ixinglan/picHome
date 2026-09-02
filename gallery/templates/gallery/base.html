@@ -28,13 +28,16 @@
     <div class="topbar-inner">
       <a class="brand" href="{% url 'gallery:index' %}">
         <span class="brand-mark" aria-hidden="true">◧</span>
-        <span class="brand-text">七牛云<em>图库</em></span>
+        <span class="brand-text">pic<em>Home</em></span>
       </a>
 
       {% if user.is_authenticated %}
       <nav class="nav">
         <a href="{% url 'gallery:index' %}" class="nav-link {% if request.path == '/' %}is-active{% endif %}">
           <span class="label">图库</span>
+        </a>
+        <a href="{% url 'gallery:history' %}" class="nav-link {% if '/history' in request.path %}is-active{% endif %}">
+          <span class="label">历史</span>
         </a>
         <a href="{% url 'gallery:recycle' %}" class="nav-link {% if '/recycle' in request.path %}is-active{% endif %}">
           <span class="label">回收站</span>
@@ -47,9 +50,17 @@
         {# 各页自有的主操作（如上传按钮） #}
         {% block topbar_actions %}{% endblock %}
 
-        {# 云端删除：直接删七牛云对象，不依赖本地记录 #}
+        {# 图床设置：多图床配置入口 #}
         {% if user.is_authenticated %}
-        <button class="icon-btn" id="cloudDeleteBtn" type="button" title="按对象名删除七牛云端文件" aria-label="按对象名删除七牛云端文件">
+        <a class="icon-btn" id="storageSettingsBtn" href="{% url 'gallery:storage_settings' %}" type="button" title="图床设置" aria-label="图床设置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+          </svg>
+        </a>
+
+        {# 云端删除：直接删图床对象，不依赖本地记录 #}
+        <button class="icon-btn" id="cloudDeleteBtn" type="button" title="按对象名删除图床文件" aria-label="按对象名删除图床文件">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M17.5 19H7a4 4 0 0 1-.6-7.96A6 6 0 0 1 17.9 9.5h.1a3.5 3.5 0 0 1 .5 6.96"/>
             <path d="M10 13.5 14 17.5M14 13.5 10 17.5"/>
@@ -117,11 +128,19 @@
   <div class="dock" id="uploadDock" hidden>
     <div class="dock-head">
       <div class="dock-title">待上传 <span id="dockCount">0</span> 张</div>
-      <button class="icon-btn dock-close" id="dockClose" type="button" title="关闭" aria-label="关闭上传队列">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M6 6l12 12M18 6L6 18"/>
-        </svg>
-      </button>
+      <div class="dock-head-actions">
+        <button class="btn btn-ghost btn-sm" id="pasteBtn" type="button" title="粘贴剪贴板里的图片">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>
+          </svg>
+          粘贴
+        </button>
+        <button class="icon-btn dock-close" id="dockClose" type="button" title="关闭" aria-label="关闭上传队列">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M6 6l12 12M18 6L6 18"/>
+          </svg>
+        </button>
+      </div>
     </div>
     <div class="dock-list" id="dockList"></div>
     <div class="dock-foot">
@@ -137,15 +156,15 @@
     <div class="modal-mask" data-close-cloud></div>
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="cloudTitle">
       <button class="modal-close" type="button" data-close-cloud aria-label="关闭">×</button>
-      <h3 class="modal-title" id="cloudTitle">删除七牛云端文件</h3>
+      <h3 class="modal-title" id="cloudTitle">删除图床文件</h3>
       <p class="modal-body">
-        直接按对象名删除七牛云上的文件，<strong>不校验本地是否存在</strong>。
+        直接按对象名删除图床上的文件，<strong>不校验本地是否存在</strong>。
         存在即删除，不存在会提示。此操作不可撤销。
       </p>
       <div class="modal-input">
         <input id="cloudKey" class="modal-field" type="text" autocomplete="off" spellcheck="false"
                placeholder="img/20260901_175700_123_ab12.jpg">
-        <p class="modal-hint">对象名可在图片卡片上查看，或到七牛云控制台空间里复制。</p>
+        <p class="modal-hint">对象名可在图片卡片上查看，或到图床控制台空间里复制。</p>
       </div>
       <div class="modal-actions">
         <button class="btn" type="button" data-close-cloud>取消</button>

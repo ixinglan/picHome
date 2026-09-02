@@ -1,0 +1,57 @@
+{% extends 'gallery/base.html' %}
+{% load static %}
+{% block title %}上传历史 · picHome{% endblock %}
+{% block page_id %}history{% endblock %}
+
+{% block content %}
+  <div class="settings">
+    <header class="settings-head">
+      <div>
+        <h1 class="settings-title">上传历史</h1>
+        <p class="settings-sub">按时间倒序展示所有上传记录。可直接复制 CDN / Markdown / HTML 链接。</p>
+      </div>
+      <a class="btn btn-ghost btn-sm" href="?{% if not show_deleted %}all=1{% endif %}">
+        {% if show_deleted %}只看正常{% else %}包含已删除{% endif %}
+      </a>
+    </header>
+
+    <div class="hist-list" id="histList">
+      {% for it in items %}
+        <div class="hist-row {% if it.is_deleted %}is-del{% endif %}" data-key="{{ it.object_key }}">
+          <div class="hist-thumb">
+            {% if it.cdn_url and not it.is_deleted %}
+              <img src="{{ it.thumb_url }}" alt="{{ it.original_name }}" loading="lazy">
+            {% else %}
+              <span class="hist-thumb-x">—</span>
+            {% endif %}
+          </div>
+          <div class="hist-info">
+            <div class="hist-name" title="{{ it.original_name }}">{{ it.original_name }}</div>
+            <div class="hist-meta">
+              <span class="provider-badge">{{ it.provider_display }}</span>
+              <span>{{ it.size|filesizeformat }}</span>
+              <span class="sep">·</span>
+              <span>{{ it.uploaded_at|date:"Y-m-d H:i" }}</span>
+              {% if it.is_deleted %}<span class="hist-del-tag">已删除</span>{% endif %}
+            </div>
+          </div>
+          <div class="hist-links">
+            <button class="btn btn-sm copy-btn" data-copy="{{ it.cdn_url }}" title="复制 CDN" {% if not it.cdn_url %}disabled{% endif %}>CDN</button>
+            <button class="btn btn-sm copy-btn" data-copy='![{{ it.original_name }}]({{ it.cdn_url }} "{{ it.original_name }}")' title="复制 Markdown" {% if not it.cdn_url %}disabled{% endif %}>MD</button>
+            <button class="btn btn-sm copy-btn" data-copy='<img src="{{ it.cdn_url }}"/>' title="复制 HTML" {% if not it.cdn_url %}disabled{% endif %}>HTML</button>
+          </div>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <div class="empty-mark" aria-hidden="true"></div>
+          <div class="empty-title">还没有上传记录</div>
+          <p class="empty-text">从图库页上传图片后，这里会出现按时间倒序的历史记录。</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'gallery/js/storage.js' %}"></script>
+{% endblock %}

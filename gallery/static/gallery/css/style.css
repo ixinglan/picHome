@@ -1355,3 +1355,173 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
     scroll-behavior: auto !important;
   }
 }
+
+/* ==========================================================================
+   2.x 新功能样式：图床徽标 / 卡片名称复制 / 多链接 / 图床设置 / 历史页 / 登录禁滚动
+   ========================================================================== */
+
+/* 图床徽标 */
+.card-media { position: relative; }
+.provider-badge {
+  position: absolute;
+  left: 8px; top: 8px;
+  z-index: 2;
+  padding: 2px 8px;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  color: var(--accent-strong, var(--accent));
+  background: color-mix(in oklab, var(--accent) 16%, var(--surface));
+  border: 1px solid color-mix(in oklab, var(--accent) 32%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+/* 卡片名称：超长悬浮显示全称 + 复制按钮 */
+.card-name-row { display: flex; align-items: center; gap: var(--s-2); }
+.card-name {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  cursor: default;
+}
+.card-name:hover::after {
+  content: attr(data-full);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  max-width: 280px;
+  padding: var(--s-2) var(--s-3);
+  background: var(--ink, #111);
+  color: var(--surface);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  line-height: 1.4;
+  border-radius: var(--r-xs);
+  white-space: normal;
+  word-break: break-all;
+  box-shadow: var(--shadow-2);
+  z-index: 6;
+  pointer-events: none;
+}
+.copy-name-btn {
+  flex-shrink: 0;
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  color: var(--text-3);
+  cursor: pointer;
+}
+.copy-name-btn:hover { color: var(--accent); border-color: var(--accent); }
+.copy-name-btn svg { width: 15px; height: 15px; }
+
+/* 卡片多链接：CDN / Markdown / HTML */
+.card-links { display: flex; flex-direction: column; gap: 6px; }
+.card-url {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: stretch;
+}
+.url-label {
+  display: grid; place-items: center;
+  padding: 0 var(--s-2);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-4);
+  background: var(--surface-3, var(--surface-2));
+  border-right: 1px solid var(--border);
+}
+
+/* 顶部上传队列：粘贴按钮 */
+.dock-head-actions { display: flex; align-items: center; gap: var(--s-2); }
+
+/* ===== 图床设置页 ===== */
+.settings { max-width: 860px; margin: 0 auto; }
+.settings-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: var(--s-4); margin-bottom: var(--s-6);
+}
+.settings-title { margin: 0 0 var(--s-2); font-size: var(--text-xl); font-weight: 600; }
+.settings-sub { margin: 0; color: var(--text-3); font-size: var(--text-sm); max-width: 60ch; }
+
+.cfg-list { display: flex; flex-direction: column; gap: var(--s-3); margin-bottom: var(--s-8); }
+.cfg-card {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.cfg-card.is-active { border-color: color-mix(in oklab, var(--accent) 45%, var(--border)); }
+.cfg-main { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
+.cfg-badge {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  font-size: var(--text-2xs); font-weight: 600;
+  border-radius: 999px;
+  color: var(--accent-strong, var(--accent));
+  background: color-mix(in oklab, var(--accent) 14%, var(--surface));
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, transparent);
+}
+.cfg-name { font-weight: 600; }
+.cfg-on { font-size: var(--text-2xs); color: var(--accent); font-weight: 600; }
+.cfg-actions { display: flex; gap: var(--s-2); flex-shrink: 0; }
+
+.cfg-form-wrap {
+  padding: var(--s-6);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+}
+.cfg-form-title { margin: 0 0 var(--s-5); font-size: var(--text-lg); font-weight: 600; }
+.cfg-fields { display: flex; flex-direction: column; gap: 0; }
+.field.invalid input {
+  border-color: var(--danger, #e5484d);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--danger, #e5484d) 20%, transparent);
+}
+.form-error {
+  margin: var(--s-4) 0 0;
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-sm);
+  background: color-mix(in oklab, var(--danger, #e5484d) 12%, var(--surface));
+  color: var(--danger, #e5484d);
+  font-size: var(--text-sm);
+}
+.cfg-form-actions { display: flex; gap: var(--s-3); margin-top: var(--s-5); }
+
+/* ===== 上传历史页 ===== */
+.hist-list { display: flex; flex-direction: column; gap: var(--s-2); }
+.hist-row {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.hist-row.is-del { opacity: 0.7; }
+.hist-thumb {
+  width: 56px; height: 56px; border-radius: var(--r-sm);
+  overflow: hidden; background: var(--surface-2); display: grid; place-items: center;
+}
+.hist-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.hist-thumb-x { color: var(--text-4); font-size: var(--text-lg); }
+.hist-info { min-width: 0; }
+.hist-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-meta {
+  display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap;
+  font-size: var(--text-2xs); color: var(--text-3);
+}
+.hist-meta .sep { color: var(--text-4); }
+.hist-del-tag { color: var(--danger, #e5484d); font-weight: 600; }
+.hist-links { display: flex; gap: var(--s-2); flex-shrink: 0; }
+
+/* ===== 登录页：卡片上移 + 禁止上下滚动 ===== */
+body[data-page="login"] { overflow: hidden; }
+body[data-page="login"] .auth { padding: var(--s-5) var(--s-4); align-items: center; }
+body[data-page="login"] .auth-card { padding: var(--s-8); }

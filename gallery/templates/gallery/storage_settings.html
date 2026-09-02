@@ -1,0 +1,79 @@
+{% extends 'gallery/base.html' %}
+{% load static %}
+{% block title %}图床设置 · picHome{% endblock %}
+{% block page_id %}storage{% endblock %}
+
+{% block content %}
+  <div class="settings">
+    <header class="settings-head">
+      <div>
+        <h1 class="settings-title">图床设置</h1>
+        <p class="settings-sub">配置你要用的图床。同一时间只能启用一个；缺必填项时无法启用，按钮会禁用并提示。</p>
+      </div>
+    </header>
+
+    {# 已保存的配置列表 #}
+    <section class="cfg-list">
+      {% for c in configs %}
+        <div class="cfg-card {% if c.is_active %}is-active{% endif %}">
+          <div class="cfg-main">
+            <span class="cfg-badge">{{ c.provider_display }}</span>
+            <div class="cfg-name">{{ c.display_name }}</div>
+            {% if c.is_active %}<span class="cfg-on">● 已启用</span>{% endif %}
+          </div>
+          <div class="cfg-actions">
+            <a class="btn btn-sm" href="?edit={{ c.id }}">编辑</a>
+            {% if not c.is_active %}
+              <button class="btn btn-sm btn-primary" data-activate="{{ c.id }}">启用</button>
+            {% endif %}
+            <button class="btn btn-sm btn-danger" data-delete="{{ c.id }}">删除</button>
+          </div>
+        </div>
+      {% empty %}
+        <p class="empty-text">还没有任何图床配置。在下面新建一个并启用后即可上传。</p>
+      {% endfor %}
+    </section>
+
+    {# 新建 / 编辑表单 #}
+    <section class="cfg-form-wrap">
+      <h2 class="cfg-form-title" id="formTitle">新建图床配置</h2>
+      <form id="storageForm" class="cfg-form">
+        <input type="hidden" name="id" id="cfgId">
+        <label class="field">
+          <span class="field-label">图床类型</span>
+          <select name="provider" id="providerSelect">
+            {% for s in specs %}
+              <option value="{{ s.name }}">{{ s.display_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">配置名称</span>
+          <input type="text" name="display_name" id="displayName" placeholder="例如：我的七牛云">
+        </label>
+
+        {# 字段模板由 JS 按所选图床的 specs 自动渲染 #}
+        <div id="fieldsBox" class="cfg-fields"></div>
+
+        <label class="remember">
+          <input type="checkbox" name="is_active" id="isActive">
+          <span>保存后立即启用此图床</span>
+        </label>
+
+        <div class="cfg-form-actions">
+          <button class="btn btn-primary" type="submit" id="saveBtn">保存</button>
+          <button class="btn btn-ghost" type="button" id="resetBtn">重置</button>
+        </div>
+        <p class="form-error" id="formError" hidden></p>
+      </form>
+    </section>
+  </div>
+
+  {{ specs|json_script:"specsData" }}
+  {% if edit %}{{ edit|json_script:"editData" }}{% endif %}
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'gallery/js/storage.js' %}"></script>
+{% endblock %}
