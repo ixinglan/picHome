@@ -20,7 +20,10 @@ static_collected/
 .idea/
 .vscode/
 .DS_Store
-.workbuddy
+# WorkBuddy 本地数据（记忆 / 自动化日志）不入库，
+# 但项目级 skill 属于交付物，需要随仓库分发，所以单独放行。
+.workbuddy/*
+!.workbuddy/skills/
 
 db_data
 media_data
