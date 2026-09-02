@@ -1,5 +1,8 @@
 django>=5.2
-qiniu>=7.10
+qiniu>=7.10                       # 七牛云 Kodo
+oss2>=2.9                        # 阿里云 OSS
+cos-python-sdk-v5>=1.9           # 腾讯云 COS
+requests>=2.28                   # GitHub 仓库（图床）等 HTTP 场景
 python-dotenv>=1.0
 gunicorn>=21.2      # 生产 WSGI 服务器
 whitenoise>=6.6     # 让 Gunicorn 直接托管静态文件，省掉 Nginx
