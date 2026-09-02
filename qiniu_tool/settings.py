@@ -115,6 +115,13 @@ QINIU_DOMAIN = os.getenv("QINIU_DOMAIN", "").rstrip("/")
 QINIU_THUMB_STYLE = os.getenv("QINIU_THUMB_STYLE", "?imageView2/2/w/400/q/75")
 
 
+# ===== 对外 API（CLI / AI Agent 上传）访问令牌 =====
+# 设置后，/api/v1/upload 必须携带此令牌（Header: Authorization: Bearer <token>
+# 或 query 参数 ?token=<token>）才能调用，否则返回 401。
+# 留空时：仅在 DEBUG=True（开发）下允许匿名调用；生产环境务必设置，避免被滥用。
+PICHOME_API_TOKEN = os.getenv("PICHOME_API_TOKEN", "")
+
+
 # ===== 登录鉴权 =====
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
