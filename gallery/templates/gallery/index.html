@@ -88,7 +88,17 @@
     {% for img in images %}
       <article class="card" data-id="{{ img.id }}" data-key="{{ img.object_key }}" style="--i:{{ forloop.counter0 }}">
         <div class="card-media">
-          <img src="{{ img.thumb_url }}" alt="{{ img.original_name }}" loading="lazy">
+          <div class="thumb-ph" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.8"/>
+              <path d="m21 15-5-5L5 21"/>
+            </svg>
+          </div>
+          {% if img.thumb_url %}
+          <img src="{{ img.thumb_url }}" alt="{{ img.original_name }}" loading="lazy"
+               onerror="this.closest('.card-media').classList.add('no-img')">
+          {% endif %}
 
           <label class="card-pick" title="选择这张">
             <input type="checkbox" class="pick-box" value="{{ img.id }}">
@@ -125,7 +135,12 @@
               </svg>
             </button>
           </div>
-          <div class="card-key" title="{{ img.object_key }}">{{ img.object_key }}</div>
+          <div class="card-key-row">
+            <div class="card-key" title="{{ img.object_key }}">{{ img.object_key }}</div>
+            <button class="icon-btn copy-key-btn" type="button" title="复制对象名" aria-label="复制对象名">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+            </button>
+          </div>
 
           <div class="card-links">
             <div class="card-url">

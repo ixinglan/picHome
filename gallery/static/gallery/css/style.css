@@ -708,7 +708,10 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.card-key-row { display: flex; align-items: center; gap: var(--s-2); }
 .card-key {
+  flex: 1;
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   color: var(--text-3);
@@ -716,6 +719,18 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.copy-key-btn {
+  flex-shrink: 0;
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  color: var(--text-3);
+  cursor: pointer;
+}
+.copy-key-btn:hover { color: var(--accent); border-color: var(--accent); }
+.copy-key-btn svg { width: 15px; height: 15px; }
 
 /* CDN 链接行 */
 .card-url {
@@ -1362,9 +1377,23 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
 
 /* 图床徽标 */
 .card-media { position: relative; }
+/* 无缩略图时的占位层：在图片下方，图片缺失或加载失败时透出 */
+.thumb-ph {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-4);
+  background: repeating-linear-gradient(45deg,
+              var(--surface-2) 0 10px, var(--surface-3) 10px 20px);
+}
+.thumb-ph svg { width: 40px; height: 40px; opacity: 0.6; }
+.card-media.no-img > img { display: none; }
 .provider-badge {
   position: absolute;
-  left: 8px; top: 8px;
+  right: 8px; top: 8px;
+  left: auto;
   z-index: 2;
   padding: 2px 8px;
   font-size: var(--text-2xs);

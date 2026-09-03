@@ -83,6 +83,8 @@
     const spec = specOf(providerSelect.value);
     fieldsBox.innerHTML = "";
     if (!spec) return;
+    // 配置名称占位提示随所选图床变化（如：我的阿里云 OSS / 我的腾讯云 COS）
+    displayName.placeholder = "例如：我的" + spec.display_name;
     const prefill = (EDIT && EDIT.provider === spec.name && EDIT.config) || {};
     spec.fields.forEach((f) => {
       const wrap = document.createElement("label");
@@ -206,6 +208,7 @@
     });
   });
 
-  /* 初始化 */
-  applyEdit();
+  /* 初始化：有编辑态走 applyEdit，否则（新建）也要渲染默认图床的字段 */
+  if (EDIT) applyEdit();
+  else renderFields();
 })();

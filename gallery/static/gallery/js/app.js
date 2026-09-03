@@ -438,7 +438,8 @@
     card.style.setProperty("--i", "0");
     card.innerHTML =
       '<div class="card-media">' +
-        '<img src="' + escapeHtml(d.thumb_url || d.cdn_url) + '" alt="' + escapeHtml(d.original_name) + '" loading="lazy">' +
+        '<div class="thumb-ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="m21 15-5-5L5 21"/></svg></div>' +
+        (d.thumb_url ? '<img src="' + escapeHtml(d.thumb_url) + '" alt="' + escapeHtml(d.original_name) + '" loading="lazy" onerror="this.closest(\'.card-media\').classList.add(\'no-img\')">' : '') +
         '<label class="card-pick" title="选择这张"><input type="checkbox" class="pick-box" value="' + d.id + '"></label>' +
         (prov ? '<span class="provider-badge" title="图床：' + escapeHtml(prov) + '">' + escapeHtml(prov) + '</span>' : '') +
         '<div class="card-hover">' +
@@ -452,7 +453,7 @@
           '<div class="card-name" title="' + escapeHtml(d.original_name) + '" data-full="' + escapeHtml(d.original_name) + '">' + escapeHtml(d.original_name) + '</div>' +
           '<button class="icon-btn copy-name-btn" type="button" title="复制图片名" aria-label="复制图片名">' + ICON_COPY + '</button>' +
         '</div>' +
-        '<div class="card-key" title="' + escapeHtml(d.object_key) + '">' + escapeHtml(d.object_key) + '</div>' +
+        '<div class="card-key-row"><div class="card-key" title="' + escapeHtml(d.object_key) + '">' + escapeHtml(d.object_key) + '</div><button class="icon-btn copy-key-btn" type="button" title="复制对象名" aria-label="复制对象名">' + ICON_COPY + '</button></div>' +
         '<div class="card-links">' +
           cardUrlRow("CDN", d.cdn_url) +
           cardUrlRow("MD", d.markdown) +
@@ -482,6 +483,7 @@
     gallery.addEventListener("click", async (e) => {
       const copyBtn = e.target.closest(".copy-btn");
       const copyNameBtn = e.target.closest(".copy-name-btn");
+      const copyKeyBtn = e.target.closest(".copy-key-btn");
       const delBtn = e.target.closest(".delete-btn");
       const tagBtn = e.target.closest(".tag-btn");
       const restoreBtn = e.target.closest(".restore-btn");
@@ -490,6 +492,13 @@
       if (copyNameBtn) {
         const name = copyNameBtn.closest(".card-name-row").querySelector(".card-name").textContent;
         try { await navigator.clipboard.writeText(name); toast("已复制图片名", "success"); }
+        catch (_) { toast("复制失败", "error"); }
+        return;
+      }
+
+      if (copyKeyBtn) {
+        const key = copyKeyBtn.closest(".card").dataset.key;
+        try { await navigator.clipboard.writeText(key); toast("已复制对象名", "success"); }
         catch (_) { toast("复制失败", "error"); }
         return;
       }
