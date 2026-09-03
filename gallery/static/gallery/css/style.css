@@ -644,6 +644,7 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
 .card-pick {
   position: absolute;
   top: var(--s-2); left: var(--s-2);
+  z-index: 3;
   display: grid;
   place-items: center;
   width: 26px; height: 26px;
@@ -851,7 +852,9 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
   padding: var(--s-4);
   border: 1px solid var(--border);
   border-radius: var(--r-xl);
-  background: var(--surface);
+  background: color-mix(in oklab, var(--surface) 82%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
   box-shadow: var(--shadow-3);
   animation: dock-in var(--dur-base) var(--ease-out-expo) both;
 }
@@ -1556,3 +1559,95 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
 body[data-page="login"] { overflow: hidden; }
 body[data-page="login"] .auth { padding: var(--s-5) var(--s-4); align-items: center; }
 body[data-page="login"] .auth-card { padding: var(--s-8); }
+
+/* ==========================================================================
+   全站动态背景 + 毛玻璃（补丁层：统一覆盖，确保全部生效）
+   ========================================================================== */
+/* body 透明，露出最底层的背景图 */
+body { background-color: transparent; }
+
+/* 固定铺满的背景层，置于最底层；图片由前端 JS 从 /api/bg/ 拉取 */
+.bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-color: var(--bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity .7s var(--ease-out-quart);
+}
+.bg-layer.is-loaded { opacity: 1; }
+/* 背景图保持清晰：全屏只保留极轻的底色，不在中间段压暗；
+   仅在顶部（导航）与底部（上传队列）加暗角，保证文字可读、背景通透。
+   毛玻璃只作用于卡片等元素本身，不再整页糊化。 */
+.bg-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom,
+      color-mix(in oklab, var(--bg) 42%, transparent) 0%,
+      transparent 20%,
+      transparent 74%,
+      color-mix(in oklab, var(--bg) 50%, transparent) 100%);
+}
+[data-theme="dark"] .bg-layer::after {
+  background:
+    linear-gradient(to bottom,
+      color-mix(in oklab, var(--bg) 72%, transparent) 0%,
+      color-mix(in oklab, var(--bg) 22%, transparent) 26%,
+      color-mix(in oklab, var(--bg) 22%, transparent) 70%,
+      color-mix(in oklab, var(--bg) 78%, transparent) 100%);
+}
+
+/* 卡片毛玻璃 */
+.card {
+  background: color-mix(in oklab, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+}
+/* 选择框 / 操作层浮在缩略图之上（img 已 z-index:1） */
+.card-pick, .card-hover { z-index: 3; }
+/* 登录卡片毛玻璃 */
+.auth-card {
+  background: color-mix(in oklab, var(--surface) 70%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+/* 弹窗毛玻璃 */
+.modal-box {
+  background: color-mix(in oklab, var(--surface) 82%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+}
+/* 上传队列毛玻璃 */
+.dock {
+  background: color-mix(in oklab, var(--surface) 82%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+/* 拖拽层内卡片毛玻璃 */
+.drop-overlay-inner {
+  background: color-mix(in oklab, var(--accent-soft) 85%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+/* 上传历史行毛玻璃 */
+.hist-row {
+  background: color-mix(in oklab, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
+}
+/* 图床配置页卡片 / 表单毛玻璃 */
+.cfg-card {
+  background: color-mix(in oklab, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
+}
+.cfg-form-wrap {
+  background: color-mix(in oklab, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
+}

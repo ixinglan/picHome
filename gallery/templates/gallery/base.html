@@ -24,6 +24,9 @@
 </head>
 <body data-page="{% block page_id %}index{% endblock %}">
 
+  {# 全站动态背景层：固定铺满、置于最底层，图片由前端从本地代理 /api/bg/ 拉取 #}
+  <div class="bg-layer" id="bgLayer" aria-hidden="true"></div>
+
   <header class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="{% url 'gallery:index' %}">
@@ -230,6 +233,40 @@
         });
       });
       sync();
+    })();
+
+    /* 动态背景：每次刷新向本地代理请求一张随机壁纸（绕过浏览器 CORS）。
+       加载失败 / 无图时回退到纯色（bg-layer 自带 --bg 兜底），不影响使用。 */
+    (function () {
+      var layer = document.getElementById("bgLayer");
+      if (!layer) return;
+      var KEY = "pichome-bg";
+      function applyBg(url) {
+        if (!url) { layer.classList.add("is-loaded"); return; }
+        var img = new Image();
+        img.onload = function () {
+          layer.style.backgroundImage = 'url("' + url + '")';
+          layer.classList.add("is-loaded");
+        };
+        img.onerror = function () { layer.classList.add("is-loaded"); };
+        img.src = url;
+      }
+      /* 1) 先用本地缓存瞬时显示，刷新不再白屏等待 */
+      var cached = null;
+      try { cached = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) {}
+      if (cached && cached.url) applyBg(cached.url);
+      /* 2) 后台静默拉取最新背景：成功则更新缓存并淡入，失败回退纯色 */
+      fetch("/api/bg/")
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.url) {
+            try { localStorage.setItem(KEY, JSON.stringify({ url: d.url, ts: Date.now() })); } catch (e) {}
+            applyBg(d.url);
+          } else {
+            layer.classList.add("is-loaded");
+          }
+        })
+        .catch(function () { layer.classList.add("is-loaded"); });
     })();
   </script>
 

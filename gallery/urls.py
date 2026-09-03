@@ -25,6 +25,9 @@ urlpatterns = [
     # 统一对外 API（CLI / AI Agent）
     path("api/v1/upload", views.api_upload, name="api_upload"),
 
+    # 背景图代理（公开，供所有页面动态获取随机背景）
+    path("api/bg/", views.bg_proxy, name="bg_proxy"),
+
     # 回收站接口
     path("recycle/restore", views.restore, name="restore"),
     path("recycle/restore_batch", views.restore_batch, name="restore_batch"),

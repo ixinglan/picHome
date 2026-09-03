@@ -24,10 +24,12 @@
 - POST /api/v1/upload     上传单张，返回 {ok, markdown, cdn_url, html, ...}
 """
 import json
+import logging
 import os
 import re
 import shutil
 
+import requests
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -37,6 +39,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
 
 from .django_backend import get_active_provider
 from .models import ImageAsset, StorageConfig, Tag
@@ -583,3 +586,91 @@ def purge_batch(request):
     for asset in assets:
         _purge(asset)
     return JsonResponse({"ok": True, "purged": len(ids), "ids": ids})
+
+
+# ===== 背景图代理：绕过浏览器 CORS，由服务端去拉随机壁纸地址 =====
+logger = logging.getLogger(__name__)
+
+# 服务端缓存（文件级，跨 gunicorn 多 worker 共享）：
+# 避免每次刷新都回源上游（上游 302 + verify=False 较慢），
+# 缓存 5 分钟内复用同一张，接口秒回；过期后重新拉取并更新缓存。
+import os
+import time
+
+_BG_TTL = 300
+_BG_CACHE_FILE = "/tmp/pichome_bg_cache.json"
+
+
+def _load_bg_cache():
+    try:
+        with open(_BG_CACHE_FILE, "r") as f:
+            data = json.load(f)
+        if isinstance(data, dict) and data.get("url"):
+            return data
+    except Exception:
+        pass
+    return {"url": "", "ts": 0.0}
+
+
+def _save_bg_cache(url, ts):
+    try:
+        tmp = _BG_CACHE_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump({"url": url, "ts": ts}, f)
+        os.replace(tmp, _BG_CACHE_FILE)
+    except Exception:
+        pass
+
+
+@never_cache
+def bg_proxy(request):
+    """代理 blog.zhaojq.top 的随机背景接口，返回 {"url": 真实图片地址}。
+
+    原接口会校验请求 Origin，浏览器从本服务（localhost:28080 等）直接
+    fetch 会被拒（返回 {"detail":"origin not allowed"}）。因此由服务端携带
+    允许的 Origin 去请求，拿到 302 的 Location（真实 Bing 壁纸地址）再转发。
+    公开接口（登录页也需要背景），不做登录校验。
+
+    注意：该服务器证书链不被 certifi 默认信任（容器内 requests 直连会抛
+    SSLError），此处仅用于获取公开的壁纸地址，故关闭证书校验并加重试；
+    失败则回退空串，前端使用纯色背景兜底。
+
+    缓存：命中且在 TTL 内直接返回，避免重复回源、提升刷新速度。
+    采用文件缓存，跨 gunicorn 多 worker 共享（进程内存不互通）。
+    """
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    # 命中缓存：接口秒回，不再回源上游
+    now = time.time()
+    cached = _load_bg_cache()
+    if cached.get("url") and (now - cached.get("ts", 0.0)) < _BG_TTL:
+        return JsonResponse({"url": cached["url"]})
+
+    upstream = "https://blog.zhaojq.top/api/bg/random"
+    headers = {"Origin": "https://blog.zhaojq.top"}
+    last_err = None
+    loc = ""
+    for _ in range(2):
+        try:
+            r = requests.get(
+                upstream, headers=headers, allow_redirects=False,
+                timeout=6, verify=False,
+            )
+            loc = r.headers.get("Location") or r.headers.get("location")
+            if not loc:
+                try:
+                    loc = r.json().get("url")
+                except Exception:
+                    loc = None
+            if loc:
+                break
+        except Exception as e:
+            last_err = e
+            continue
+
+    if loc:
+        _save_bg_cache(loc, now)
+        return JsonResponse({"url": loc})
+    logger.warning("背景图代理失败: %s", last_err)
+    return JsonResponse({"url": ""})
