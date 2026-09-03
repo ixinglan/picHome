@@ -95,7 +95,7 @@ cd "/Users/ixiaoqiang/WorkBuddy/七牛云"
 │   ├── SKILL.md
 │   └── scripts/pichome.py             # 与根目录 pichome.py 保持同步
 │
-├── qiniu_tool/                    # Django 项目配置包（历史命名，内部标识）
+├── pichome_web/                   # Django 项目配置包（settings / urls / wsgi / asgi）
 │   ├── settings.py                # 含 PICHOME_API_TOKEN / 媒体目录 / 登录配置
 │   ├── urls.py / wsgi.py / asgi.py
 │
@@ -515,7 +515,6 @@ A：`python manage.py inituser --username admin --password 新密码`。
 
 - **桌面客户端**：`gallery/storage/` 已与 Django 解耦，可直接被 PySide/Tauri 壳复用；上传核心若要脱离 Django ORM，只需把 `upload_service` 里的写库部分抽成可替换的 repository。
 - **CLI 批量上传 / 目录监听**：当前按需求只做单张。
-- 内部包名 `qiniu_tool` 为历史命名（涉及 `DJANGO_SETTINGS_MODULE`、Dockerfile、入口脚本），未随品牌改名，属纯内部标识，可在单独一次重构中统一。
 
 ---
 

@@ -19,7 +19,7 @@ echo "==> 收集静态文件（交由 Whitenoise 直接由 Gunicorn 提供，无
 python manage.py collectstatic --noinput
 
 echo "==> 启动 Gunicorn（0.0.0.0:8000）"
-exec gunicorn qiniu_tool.wsgi:application \
+exec gunicorn pichome_web.wsgi:application \
     --bind 0.0.0.0:8000 \
     --workers 3 \
     --timeout 120 \

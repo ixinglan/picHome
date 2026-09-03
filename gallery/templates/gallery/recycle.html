@@ -34,7 +34,7 @@
 
   <div class="grid" id="gallery">
     {% for it in items %}
-      <article class="card card-del" data-id="{{ it.id }}" data-key="{{ it.qiniu_key }}" style="--i:{{ forloop.counter0 }}">
+      <article class="card card-del" data-id="{{ it.id }}" data-key="{{ it.object_key }}" style="--i:{{ forloop.counter0 }}">
         <div class="card-media">
           <div class="thumb-del"><span class="deleted-tag">已删除</span></div>
 
@@ -59,7 +59,7 @@
 
         <div class="card-info">
           <div class="card-name" title="{{ it.original_name }}">{{ it.original_name }}</div>
-          <div class="card-key" title="{{ it.qiniu_key }}">{{ it.qiniu_key }}</div>
+          <div class="card-key" title="{{ it.object_key }}">{{ it.object_key }}</div>
           <div class="card-meta">
             <span>删除于 {{ it.deleted_at|date:"n月j日 H:i" }}</span>
           </div>

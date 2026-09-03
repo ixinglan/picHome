@@ -42,7 +42,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "qiniu_tool.urls"
+ROOT_URLCONF = "pichome_web.urls"
 
 TEMPLATES = [
     {
@@ -60,7 +60,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "qiniu_tool.wsgi.application"
+WSGI_APPLICATION = "pichome_web.wsgi.application"
 
 
 # ===== 数据库（开发用 SQLite）=====

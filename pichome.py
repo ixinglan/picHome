@@ -42,7 +42,7 @@ def _err(msg: str):
 
 def upload_in_process(path: str, tags: str):
     """容器内模式：直接复用 Web 同一套上传核心（gallery.upload_service）。"""
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "qiniu_tool.settings")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pichome_web.settings")
     import django
 
     django.setup()
