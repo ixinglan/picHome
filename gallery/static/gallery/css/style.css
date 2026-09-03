@@ -632,6 +632,8 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
   overflow: hidden;
 }
 .card-media img {
+  position: relative;
+  z-index: 1;
   width: 100%; height: 100%;
   object-fit: cover;
   transition: transform var(--dur-slow) var(--ease-out-quart);
