@@ -221,17 +221,6 @@ body {
               color var(--dur-base) var(--ease-out-quart);
 }
 
-/* 顶部极淡的青色渐晕，给纯色背景一点空气感（非装饰性渐变滥用） */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0 0 auto 0;
-  height: 320px;
-  background: linear-gradient(180deg, var(--bg-wash), transparent);
-  pointer-events: none;
-  z-index: 0;
-}
-
 img { max-width: 100%; display: block; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: inherit; text-decoration: none; }
@@ -1602,20 +1591,9 @@ body { background-color: transparent; }
   content: "";
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(to bottom,
-      color-mix(in oklab, var(--bg) 42%, transparent) 0%,
-      transparent 20%,
-      transparent 74%,
-      color-mix(in oklab, var(--bg) 50%, transparent) 100%);
-}
-[data-theme="dark"] .bg-layer::after {
-  background:
-    linear-gradient(to bottom,
-      color-mix(in oklab, var(--bg) 72%, transparent) 0%,
-      color-mix(in oklab, var(--bg) 22%, transparent) 26%,
-      color-mix(in oklab, var(--bg) 22%, transparent) 70%,
-      color-mix(in oklab, var(--bg) 78%, transparent) 100%);
+  /* 背景图保持 100% 通透，四周不再压任何暗角 / 光影；
+     顶部导航（.topbar）与底部上传队列（.dock）各自用半透明毛玻璃保证文字可读。 */
+  background: transparent;
 }
 
 /* 卡片毛玻璃 */
