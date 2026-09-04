@@ -94,17 +94,43 @@
         </div>
 
         {% if user.is_authenticated %}
-        <div class="user">
-          <span class="user-name" title="{{ user.username }}">{{ user.username }}</span>
-          <form method="post" action="{% url 'gallery:logout' %}">
-            {% csrf_token %}
-            <button class="icon-btn" type="submit" title="退出登录" aria-label="退出登录">
+        <div class="user" id="userMenu">
+          <button class="user-trigger" type="button" id="userTrigger"
+                  aria-haspopup="true" aria-expanded="false" aria-label="用户菜单">
+            {% if avatar_url %}
+              <img class="user-avatar" src="{{ avatar_url }}" alt="">
+            {% else %}
+              <span class="user-avatar user-avatar--text">{{ user.username|first|upper }}</span>
+            {% endif %}
+            <span class="user-name" title="{{ nickname }}">{{ nickname }}</span>
+            <svg class="user-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </button>
+
+          <div class="user-dropdown" id="userDropdown" hidden role="menu" aria-label="用户菜单">
+            <div class="user-dropdown-head">
+              <span class="user-dropdown-name">{{ nickname }}</span>
+              <span class="user-dropdown-uname">@{{ user.username }}</span>
+            </div>
+            <button class="user-item" type="button" id="openAccountBtn" role="menuitem">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/>
-                <path d="M10 17l-5-5 5-5M5 12h10"/>
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M5.5 21a6.5 6.5 0 0 1 13 0"/>
               </svg>
+              用户管理
             </button>
-          </form>
+            <form method="post" action="{% url 'gallery:logout' %}" class="user-logout-form">
+              {% csrf_token %}
+              <button class="user-item user-item--danger" type="submit" role="menuitem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/>
+                  <path d="M10 17l-5-5 5-5M5 12h10"/>
+                </svg>
+                退出登录
+              </button>
+            </form>
+          </div>
         </div>
         {% endif %}
       </div>
@@ -172,6 +198,60 @@
       <div class="modal-actions">
         <button class="btn" type="button" data-close-cloud>取消</button>
         <button class="btn btn-danger-solid" id="cloudDeleteSubmit" type="button">删除</button>
+      </div>
+    </div>
+  </div>
+
+  {# ===== 用户管理：头像 / 昵称 / 密码 ===== #}
+  <div class="modal" id="accountModal" hidden>
+    <div class="modal-mask" data-close-account></div>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="accountTitle" style="width:min(460px,100%)">
+      <button class="modal-close" type="button" data-close-account aria-label="关闭">×</button>
+      <h3 class="modal-title" id="accountTitle">用户管理</h3>
+
+      <div class="acct-avatar-wrap">
+        <div class="acct-avatar" id="acctAvatar">
+          {% if avatar_url %}
+            <img src="{{ avatar_url }}" alt="头像">
+          {% else %}
+            <span class="acct-avatar-text" id="acctAvatarText">{{ user.username|first|upper }}</span>
+          {% endif %}
+        </div>
+        <div>
+          <div class="field-label">头像</div>
+          <label class="btn btn-sm btn-ghost acct-upload">
+            选择图片
+            <input type="file" id="avatarInput" accept="image/*" hidden>
+          </label>
+          <p class="modal-hint">支持 JPG / PNG / WebP，建议正方形</p>
+        </div>
+      </div>
+
+      <label class="field">
+        <span class="field-label">用户昵称</span>
+        <input type="text" id="nicknameInput" value="{{ nickname|default:user.username }}" maxlength="40" autocomplete="off">
+      </label>
+
+      <div class="acct-divider"><span>修改密码</span></div>
+
+      <label class="field">
+        <span class="field-label">当前密码</span>
+        <input type="password" id="oldPwd" autocomplete="current-password">
+      </label>
+      <label class="field">
+        <span class="field-label">新密码</span>
+        <input type="password" id="newPwd" autocomplete="new-password">
+      </label>
+      <label class="field">
+        <span class="field-label">确认新密码</span>
+        <input type="password" id="newPwd2" autocomplete="new-password">
+      </label>
+
+      <p class="form-error" id="acctError" hidden></p>
+
+      <div class="modal-actions">
+        <button class="btn" type="button" data-close-account>取消</button>
+        <button class="btn btn-primary" id="saveAccountBtn" type="button">保存</button>
       </div>
     </div>
   </div>
@@ -269,6 +349,10 @@
         .catch(function () { layer.classList.add("is-loaded"); });
     })();
   </script>
+
+  {% if user.is_authenticated %}
+  <script src="{% static 'gallery/js/account.js' %}"></script>
+  {% endif %}
 
   {% block scripts %}{% endblock %}
 </body>

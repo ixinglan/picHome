@@ -14,6 +14,11 @@ urlpatterns = [
     path("recycle/", views.recycle, name="recycle"),
     path("history/", views.history, name="history"),
     path("settings/storage/", views.storage_settings, name="storage_settings"),
+    path("settings/account/", views.account, name="account"),
+    path("settings/account-avatar/", views.account_avatar, name="account_avatar"),
+
+    # 本地文件预览（回收站卡片用本地文件渲染预览图）
+    path("asset/<int:pk>/local-image/", views.local_image, name="local_image"),
 
     # 图库接口
     path("upload", views.upload, name="upload"),

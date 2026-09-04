@@ -36,7 +36,12 @@
     {% for it in items %}
       <article class="card card-del" data-id="{{ it.id }}" data-key="{{ it.object_key }}" style="--i:{{ forloop.counter0 }}">
         <div class="card-media">
-          <div class="thumb-del"><span class="deleted-tag">已删除</span></div>
+          <div class="thumb-del" aria-hidden="true"></div>
+          {% if it.preview_url %}
+          <img src="{{ it.preview_url }}" alt="{{ it.original_name }}" loading="lazy"
+               onerror="this.closest('.card-media').classList.add('no-img')">
+          {% endif %}
+          <span class="deleted-tag">已删除</span>
 
           <label class="card-pick" title="选择这张">
             <input type="checkbox" class="pick-box" value="{{ it.id }}">

@@ -108,6 +108,11 @@
           <span class="provider-badge" title="图床：{{ img.provider_display }}">{{ img.provider_display }}</span>
 
           <div class="card-hover">
+            <button class="btn btn-sm preview-btn" type="button" title="预览大图" aria-label="预览大图" data-preview="{{ img.cdn_url }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+              </svg>
+            </button>
             <a class="btn btn-sm" href="{{ img.cdn_url }}" target="_blank" rel="noopener" title="查看原图" aria-label="查看原图">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
@@ -199,6 +204,15 @@
       <div class="empty-mark" aria-hidden="true"></div>
       <div class="empty-title">没有匹配的图片</div>
       <p class="empty-text">调整搜索关键词，或清除筛选看看全部图片。</p>
+    </div>
+  </div>
+
+  {# 灯箱预览：点击卡片缩略图或「预览」按钮，在当前页面弹窗 + 遮罩展示原图 #}
+  <div class="modal" id="previewModal" hidden>
+    <div class="modal-mask" data-close-preview></div>
+    <div class="preview-box" role="dialog" aria-modal="true" aria-label="图片预览">
+      <button class="modal-close" type="button" data-close-preview aria-label="关闭">×</button>
+      <img id="previewImg" src="" alt="预览大图">
     </div>
   </div>
 {% endblock %}

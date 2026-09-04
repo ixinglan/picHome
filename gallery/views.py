@@ -25,6 +25,7 @@
 """
 import json
 import logging
+import mimetypes
 import os
 import re
 import shutil
@@ -34,15 +35,16 @@ from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
 
 from .django_backend import get_active_provider
-from .models import ImageAsset, StorageConfig, Tag
+from .models import ImageAsset, StorageConfig, Tag, UserProfile
 from .storage import ConfigError, StorageError, create_provider, list_specs
 from .storage.exceptions import StorageError as _StorageError
 from .upload_service import build_payload, upload_image
@@ -186,6 +188,88 @@ def logout_view(request):
     return redirect("gallery:login")
 
 
+# ---------- 本地文件预览（回收站 / 图库原图兜底） ----------
+@login_required
+def local_image(request, pk):
+    """
+    按资源 id 读取本地落盘文件并流式返回（回收站读 recycle 目录，正常图读 uploads 目录）。
+    用于回收站卡片展示预览图——云端对象已删，只剩本地文件。
+    做了路径穿越防护：解析后的真实路径必须仍落在对应目录下。
+    """
+    asset = get_object_or_404(ImageAsset, pk=pk)
+    base = _recycle_dir() if asset.status == ImageAsset.STATUS_DELETED else _uploads_dir()
+    path = (base / asset.local_name).resolve()
+    base_resolved = base.resolve()
+    if (
+        not str(path).startswith(str(base_resolved) + os.sep)
+        and str(path) != str(base_resolved)
+    ):
+        raise Http404()
+    if not path.exists() or not path.is_file():
+        raise Http404()
+    ct, _ = mimetypes.guess_type(str(path))
+    return FileResponse(
+        open(str(path), "rb"),
+        content_type=ct or "application/octet-stream",
+        filename=asset.local_name,
+    )
+
+
+# ---------- 用户管理（昵称 / 头像 / 密码） ----------
+@login_required
+@require_POST
+def account(request):
+    """保存用户资料：昵称、头像（可选），以及（可选）修改密码。"""
+    user = request.user
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+
+    nickname = request.POST.get("nickname", "").strip()
+    if nickname:
+        profile.nickname = nickname
+
+    avatar = request.FILES.get("avatar")
+    if avatar:
+        if not (avatar.content_type or "").startswith("image/"):
+            return JsonResponse({"ok": False, "error": "头像必须是图片文件"}, status=400)
+        profile.avatar = avatar
+
+    # 密码：三项任一填写即视为要改密码，需校验当前密码并两次一致
+    old = request.POST.get("old_password", "")
+    new1 = request.POST.get("new_password", "")
+    new2 = request.POST.get("new_password2", "")
+    if old or new1 or new2:
+        if not user.check_password(old):
+            return JsonResponse({"ok": False, "error": "当前密码不正确"}, status=400)
+        if new1 != new2:
+            return JsonResponse({"ok": False, "error": "两次输入的新密码不一致"}, status=400)
+        if len(new1) < 6:
+            return JsonResponse({"ok": False, "error": "新密码至少 6 位"}, status=400)
+        user.set_password(new1)
+        user.save()
+
+    profile.save()
+    return JsonResponse(
+        {
+            "ok": True,
+            "nickname": profile.nickname or user.username,
+            "avatar_url": reverse("gallery:account_avatar") if profile.avatar else "",
+        }
+    )
+
+
+@login_required
+def account_avatar(request):
+    """返回当前登录用户的头像文件（无头像则 404，前端回退到首字母占位）。"""
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    if not profile.avatar:
+        raise Http404()
+    path = profile.avatar.path
+    if not os.path.exists(path):
+        raise Http404()
+    ct, _ = mimetypes.guess_type(path)
+    return FileResponse(open(path, "rb"), content_type=ct or "image/*")
+
+
 # ---------- 页面 ----------
 @login_required
 @ensure_csrf_cookie
@@ -253,6 +337,11 @@ def recycle(request):
         items = items.filter(
             Q(original_name__icontains=q) | Q(object_key__icontains=q)
         )
+    # 为每条记录附加本地预览地址：仅当回收站里确实存在对应本地文件时才给，
+    # 前端用它渲染预览图，缺失则回退到「已删除」占位（onerror 兜底）。
+    for it in items:
+        local = _recycle_dir() / it.local_name
+        it.preview_url = reverse("gallery:local_image", args=[it.id]) if local.exists() else ""
     return render(request, "gallery/recycle.html", {"items": items, "q": q})
 
 

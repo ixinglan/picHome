@@ -143,3 +143,26 @@ class StorageConfig(models.Model):
 
     def provider_display(self):
         return dict(self.PROVIDER_CHOICES).get(self.provider, self.provider)
+
+
+class UserProfile(models.Model):
+    """
+    用户扩展资料（一对一关联 Django 自带 User）。
+    - nickname：昵称（展示用，默认回退到 username）
+    - avatar   ：头像图片（存于 MEDIA_ROOT/avatars，由 account_avatar 视图按需返回）
+    """
+
+    user = models.OneToOneField(
+        "auth.User", on_delete=models.CASCADE, related_name="profile", verbose_name="用户"
+    )
+    nickname = models.CharField(max_length=40, blank=True, verbose_name="昵称")
+    # 用 FileField 而非 ImageField：仅存文件路径，图片合法性在视图层按 content_type 校验，
+    # 避免依赖 Pillow（容器内当前未安装），头像展示由 account_avatar 视图流式返回。
+    avatar = models.FileField(upload_to="avatars/", blank=True, verbose_name="头像")
+
+    class Meta:
+        verbose_name = "用户资料"
+        verbose_name_plural = "用户资料"
+
+    def __str__(self):
+        return self.nickname or self.user.username

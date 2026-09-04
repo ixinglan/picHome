@@ -22,6 +22,7 @@
   const ICON_TAG = svg('<path d="M3 11V5a2 2 0 0 1 2-2h6l9 9-8 8-9-9Z"/><circle cx="7.5" cy="7.5" r="1.3"/>');
   const ICON_TRASH = svg('<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>');
   const ICON_COPY = svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>');
+  const ICON_PREVIEW = svg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>');
 
   /* ---------- 工具 ---------- */
   let toastTimer;
@@ -127,10 +128,30 @@
   document.getElementById("modalCancel").addEventListener("click", () => closeModal(null));
   document.getElementById("modalMask").addEventListener("click", () => closeModal(null));
   modalInput.addEventListener("keydown", (e) => { if (e.key === "Enter") closeModal(modalInput.value); });
+
+  /* ---------- 图库灯箱预览（顶层 .modal，z-index:70，不遮挡卡片内元素） ---------- */
+  const previewModal = document.getElementById("previewModal");
+  const previewImg = document.getElementById("previewImg");
+  function openPreview(url) {
+    if (!previewModal || !url) return;
+    previewImg.src = url;
+    previewModal.hidden = false;
+  }
+  function closePreview() {
+    previewModal.hidden = true;
+    previewImg.src = "";
+  }
+  if (previewModal) {
+    previewModal.querySelectorAll("[data-close-preview]").forEach((el) =>
+      el.addEventListener("click", closePreview)
+    );
+  }
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       if (!modal.hidden) closeModal(null);
       if (!cloudModal.hidden) closeCloudModal();
+      if (previewModal && !previewModal.hidden) closePreview();
     }
   });
 
@@ -443,6 +464,7 @@
         '<label class="card-pick" title="选择这张"><input type="checkbox" class="pick-box" value="' + d.id + '"></label>' +
         (prov ? '<span class="provider-badge" title="图床：' + escapeHtml(prov) + '">' + escapeHtml(prov) + '</span>' : '') +
         '<div class="card-hover">' +
+          '<button class="btn btn-sm preview-btn" type="button" title="预览大图" aria-label="预览大图" data-preview="' + escapeHtml(d.cdn_url) + '">' + ICON_PREVIEW + '</button>' +
           '<a class="btn btn-sm" href="' + escapeHtml(d.cdn_url) + '" target="_blank" rel="noopener" title="查看原图" aria-label="查看原图">' + ICON_EYE + '</a>' +
           '<button class="btn btn-sm tag-btn" type="button" title="改标签" aria-label="改标签">' + ICON_TAG + '</button>' +
           '<button class="btn btn-sm btn-danger delete-btn" type="button" title="删除" aria-label="删除">' + ICON_TRASH + '</button>' +
@@ -488,6 +510,17 @@
       const tagBtn = e.target.closest(".tag-btn");
       const restoreBtn = e.target.closest(".restore-btn");
       const purgeBtn = e.target.closest(".purge-btn");
+      const previewBtn = e.target.closest(".preview-btn");
+      const mediaImg = e.target.closest(".card-media img");
+
+      if (previewBtn) {
+        openPreview(previewBtn.dataset.preview);
+        return;
+      }
+      if (mediaImg) {
+        openPreview(mediaImg.currentSrc || mediaImg.src);
+        return;
+      }
 
       if (copyNameBtn) {
         const name = copyNameBtn.closest(".card-name-row").querySelector(".card-name").textContent;
