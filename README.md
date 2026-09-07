@@ -11,6 +11,18 @@
 
 ---
 
+## 🔰 演示账号
+
+用于登录后体验浏览效果，但不能做任何写操作（上传 / 删除 / 改资料 / 云端删除 / 回收站恢复均被拦截）：
+
+- 演示地址：[https://pichome.zhaojq.top](https://pichome.zhaojq.top)
+- 用户名：`demo`
+- 密码：`demo12345`
+
+演示账号的服务端强制只读由 `gallery/middleware.py` 的 `DemoReadOnlyMiddleware` 实现（`UserProfile.is_demo = True` 标记），前端仅做按钮隐藏，真正的安全拦截在服务端。如需新建/调整演示账号，见迁移 `gallery/migrations/0006_create_demo_user.py`。
+
+---
+
 ## ✨ 为什么选 picHome
 
 - **多图床一处管理**：七牛 / 阿里 / 腾讯 / GitHub / 本地，在网页「图床设置」里填配置就能启用，自动渲染表单、校验必填项。
@@ -277,17 +289,6 @@ python manage.py runserver 0.0.0.0:8000
 4. 开 Pull Request
 
 新增一个图床只需在 `gallery/storage/` 下写一个 Provider 类（参考 `aliyun_provider.py`），无需改动其它代码。
-
----
-
-## 🔰 演示账号
-
-分支 `dev-0907` 内置一个**只读演示账号**，用于登录后体验浏览效果，但不能做任何写操作（上传 / 删除 / 改资料 / 云端删除 / 回收站恢复均被拦截）：
-
-- 用户名：`demo`
-- 密码：`demo12345`
-
-演示账号的服务端强制只读由 `gallery/middleware.py` 的 `DemoReadOnlyMiddleware` 实现（`UserProfile.is_demo = True` 标记），前端仅做按钮隐藏，真正的安全拦截在服务端。如需新建/调整演示账号，见迁移 `gallery/migrations/0006_create_demo_user.py`。
 
 ---
 
