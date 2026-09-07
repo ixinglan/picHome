@@ -27,3 +27,6 @@ static_collected/
 
 db_data
 media_data
+
+# 服务器部署演示 demo 隐藏，避免暴露服务器信息
+DEPLOY.md
