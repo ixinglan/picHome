@@ -22,7 +22,7 @@
   const ICON_TAG = svg('<path d="M3 11V5a2 2 0 0 1 2-2h6l9 9-8 8-9-9Z"/><circle cx="7.5" cy="7.5" r="1.3"/>');
   const ICON_TRASH = svg('<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>');
   const ICON_COPY = svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>');
-  const ICON_PREVIEW = svg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>');
+  const ICON_DOWNLOAD = svg('<path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>');
 
   /* ---------- 工具 ---------- */
   let toastTimer;
@@ -132,19 +132,71 @@
   /* ---------- 图库灯箱预览（顶层 .modal，z-index:70，不遮挡卡片内元素） ---------- */
   const previewModal = document.getElementById("previewModal");
   const previewImg = document.getElementById("previewImg");
+  const previewStage = document.getElementById("previewStage");
+  const previewZoom = document.getElementById("previewZoom");
+
+  /* 缩放 / 平移状态 */
+  let pvScale = 1, pvX = 0, pvY = 0;
+  function pvApply() {
+    if (!previewImg) return;
+    previewImg.style.transform = "translate(" + pvX + "px," + pvY + "px) scale(" + pvScale + ")";
+    if (previewZoom) previewZoom.textContent = Math.round(pvScale * 100) + "%";
+  }
+  function pvReset() { pvScale = 1; pvX = 0; pvY = 0; pvApply(); }
+
   function openPreview(url) {
     if (!previewModal || !url) return;
+    pvScale = 0.8; pvX = 0; pvY = 0; pvApply();   /* 默认以 80% 大小打开 */
     previewImg.src = url;
     previewModal.hidden = false;
   }
   function closePreview() {
     previewModal.hidden = true;
     previewImg.src = "";
+    pvReset();
   }
+
   if (previewModal) {
     previewModal.querySelectorAll("[data-close-preview]").forEach((el) =>
       el.addEventListener("click", closePreview)
     );
+    /* 缩放按钮 */
+    previewModal.querySelectorAll("[data-zoom]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const mode = btn.dataset.zoom;
+        if (mode === "in") pvScale = Math.min(pvScale * 1.25, 6);
+        else if (mode === "out") pvScale = Math.max(pvScale / 1.25, 0.2);
+        else pvReset();
+        pvApply();
+      });
+    });
+    /* 滚轮缩放（以指针为中心） */
+    if (previewStage) {
+      previewStage.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+        pvScale = Math.max(0.2, Math.min(6, pvScale * delta));
+        pvApply();
+      }, { passive: false });
+      /* 拖拽平移（放大后可拖动查看细节） */
+      let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+      previewStage.addEventListener("pointerdown", (e) => {
+        if (pvScale <= 1) return;
+        dragging = true; sx = e.clientX; sy = e.clientY; ox = pvX; oy = pvY;
+        previewStage.classList.add("grabbing");
+        previewStage.setPointerCapture(e.pointerId);
+      });
+      previewStage.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        pvX = ox + (e.clientX - sx);
+        pvY = oy + (e.clientY - sy);
+        pvApply();
+      });
+      const endDrag = () => { dragging = false; previewStage.classList.remove("grabbing"); };
+      previewStage.addEventListener("pointerup", endDrag);
+      previewStage.addEventListener("pointercancel", endDrag);
+    }
   }
 
   document.addEventListener("keydown", (e) => {
@@ -456,6 +508,8 @@
     card.className = "card";
     card.dataset.id = d.id;
     card.dataset.key = d.object_key;
+    card.dataset.cdn = d.cdn_url || "";
+    card.dataset.name = d.original_name || "";
     card.style.setProperty("--i", "0");
     card.innerHTML =
       '<div class="card-media">' +
@@ -464,7 +518,7 @@
         '<label class="card-pick" title="选择这张"><input type="checkbox" class="pick-box" value="' + d.id + '"></label>' +
         (prov ? '<span class="provider-badge" title="图床：' + escapeHtml(prov) + '">' + escapeHtml(prov) + '</span>' : '') +
         '<div class="card-hover">' +
-          '<button class="btn btn-sm preview-btn" type="button" title="预览大图" aria-label="预览大图" data-preview="' + escapeHtml(d.cdn_url) + '">' + ICON_PREVIEW + '</button>' +
+          '<button class="btn btn-sm export-btn" type="button" title="导出该图片" aria-label="导出该图片" data-export="' + d.id + '">' + ICON_DOWNLOAD + '</button>' +
           '<a class="btn btn-sm" href="' + escapeHtml(d.cdn_url) + '" target="_blank" rel="noopener" title="查看原图" aria-label="查看原图">' + ICON_EYE + '</a>' +
           '<button class="btn btn-sm tag-btn" type="button" title="改标签" aria-label="改标签">' + ICON_TAG + '</button>' +
           '<button class="btn btn-sm btn-danger delete-btn" type="button" title="删除" aria-label="删除">' + ICON_TRASH + '</button>' +
@@ -477,9 +531,9 @@
         '</div>' +
         '<div class="card-key-row"><div class="card-key" title="' + escapeHtml(d.object_key) + '">' + escapeHtml(d.object_key) + '</div><button class="icon-btn copy-key-btn" type="button" title="复制对象名" aria-label="复制对象名">' + ICON_COPY + '</button></div>' +
         '<div class="card-links">' +
-          cardUrlRow("CDN", d.cdn_url) +
-          cardUrlRow("MD", d.markdown) +
-          cardUrlRow("HTML", d.html) +
+          '<button class="link-btn" type="button" data-copy-type="cdn" title="复制 CDN 链接">CDN</button>' +
+          '<button class="link-btn" type="button" data-copy-type="md" title="复制 Markdown">MD</button>' +
+          '<button class="link-btn" type="button" data-copy-type="html" title="复制 HTML">HTML</button>' +
         '</div>' +
         '<div class="card-meta"><span>' + formatBytes(d.size) + '</span><span class="sep">·</span><span>' + formatWhen(d.uploaded_at) + '</span></div>' +
         '<div class="card-tags">' + tags + '</div>' +
@@ -489,36 +543,27 @@
     refreshBulk();
   }
 
-  function cardUrlRow(label, value) {
-    const v = (value || "").replace(/"/g, "&quot;");
-    return '<div class="card-url">' +
-      '<span class="url-label">' + label + '</span>' +
-      '<input readonly value="' + v + '" title="' + v + '">' +
-      '<button class="btn btn-sm copy-btn" type="button" title="复制" aria-label="复制">' + ICON_COPY + '</button>' +
-    '</div>';
-  }
-
   /* ---------- 卡片操作（事件委托） ---------- */
   const gallery = document.getElementById("gallery");
 
   if (gallery) {
     gallery.addEventListener("click", async (e) => {
-      const copyBtn = e.target.closest(".copy-btn");
+      const linkBtn = e.target.closest(".link-btn");
+      const exportBtn = e.target.closest(".export-btn");
       const copyNameBtn = e.target.closest(".copy-name-btn");
       const copyKeyBtn = e.target.closest(".copy-key-btn");
       const delBtn = e.target.closest(".delete-btn");
       const tagBtn = e.target.closest(".tag-btn");
       const restoreBtn = e.target.closest(".restore-btn");
       const purgeBtn = e.target.closest(".purge-btn");
-      const previewBtn = e.target.closest(".preview-btn");
       const mediaImg = e.target.closest(".card-media img");
 
-      if (previewBtn) {
-        openPreview(previewBtn.dataset.preview);
-        return;
-      }
       if (mediaImg) {
-        openPreview(mediaImg.currentSrc || mediaImg.src);
+        const card = mediaImg.closest(".card");
+        const url = card && card.dataset.cdn
+          ? card.dataset.cdn
+          : (mediaImg.currentSrc || mediaImg.src);
+        openPreview(url);
         return;
       }
 
@@ -536,16 +581,18 @@
         return;
       }
 
-      if (copyBtn) {
-        const input = copyBtn.closest(".card-url").querySelector("input");
-        try {
-          await navigator.clipboard.writeText(input.value);
-          toast("已复制链接", "success");
-        } catch (_) {
-          input.select();
-          document.execCommand("copy");
-          toast("已复制链接", "success");
-        }
+      if (linkBtn) {
+        const card = linkBtn.closest(".card");
+        const type = linkBtn.dataset.copyType;
+        const text = buildCopyText(card, type);
+        const label = { cdn: "CDN 链接", md: "Markdown", html: "HTML" }[type] || "链接";
+        const ok = await copyText(text);
+        toast(ok ? "已复制" + label : "复制失败", ok ? "success" : "error");
+        return;
+      }
+
+      if (exportBtn) {
+        openExportChooser({ ids: [exportBtn.dataset.export] });
         return;
       }
 
@@ -682,6 +729,165 @@
       } else {
         toast(resp.error || "批量删除失败", "error");
       }
+    });
+  }
+
+  /* ---------- 复制辅助：按卡片 data 现场构造文本并写入剪贴板 ---------- */
+  function buildCopyText(card, type) {
+    if (!card) return "";
+    const cdn = card.dataset.cdn || "";
+    const name = card.dataset.name || "";
+    if (type === "cdn") return cdn;
+    if (type === "md") return '![' + name + '](' + cdn + ' "' + name + '")';
+    if (type === "html") return '<img src="' + cdn + '"/>';
+    return "";
+  }
+
+  function copyText(text) {
+    return new Promise((resolve) => {
+      const fallback = () => {
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          const ok = document.execCommand("copy");
+          document.body.removeChild(ta);
+          resolve(ok);
+        } catch (e) { resolve(false); }
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => resolve(true)).catch(fallback);
+      } else {
+        fallback();
+      }
+    });
+  }
+
+  /* ---------- 导出：单张 / 多选 / 全部（JSON 清单 或 原图 ZIP） ---------- */
+  function selectedIds() {
+    return checkedBoxes().map((b) => b.value);
+  }
+
+  /* 待导出范围（全部 / 指定 id 列表），由格式选择弹窗消费 */
+  let pendingExport = null;
+  const exportModal = document.getElementById("exportModal");
+  const exportCountText = document.getElementById("exportCountText");
+
+  function openExportChooser(spec) {
+    pendingExport = spec;
+    if (exportCountText) {
+      exportCountText.textContent = spec.all
+        ? "全部"
+        : ((spec.ids ? spec.ids.length : 0) + " 张");
+    }
+    if (exportModal) exportModal.hidden = false;
+  }
+  function closeExportModal() {
+    if (exportModal) exportModal.hidden = true;
+  }
+  /* 导出进度浮层元素 */
+  const exportProgress = document.getElementById("exportProgress");
+  const exportProgressFill = document.getElementById("exportProgressFill");
+  const exportProgressTitle = document.getElementById("exportProgressTitle");
+  const exportProgressSub = document.getElementById("exportProgressSub");
+  function startExportProgress(isImages) {
+    if (!exportProgress) return;
+    exportProgress.hidden = false;
+    if (exportProgressFill) exportProgressFill.style.width = isImages ? "0%" : "100%";
+    if (exportProgressTitle) exportProgressTitle.textContent = isImages ? "正在打包原图…" : "正在导出…";
+    if (exportProgressSub) exportProgressSub.textContent = isImages
+      ? "正在从图床拉取原图并压缩，完成后会自动下载"
+      : "正在生成清单…";
+  }
+  function setExportProgress(ratio) {
+    if (exportProgressFill) exportProgressFill.style.width =
+      Math.min(100, Math.max(0, Math.round(ratio * 100))) + "%";
+  }
+  function finishExportProgress() {
+    if (exportProgress) exportProgress.hidden = true;
+  }
+  function filenameFromResp(resp) {
+    const cd = resp.headers.get("Content-Disposition") || "";
+    const m = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)/i);
+    return m ? m[1] : "";
+  }
+
+  function exportAssets(ids, fmt) {
+    const isImages = fmt === "images";
+    const url = "/export/?" + (ids && ids.length
+      ? "ids=" + encodeURIComponent(ids.join(",")) + "&"
+      : "all=1&") + "fmt=" + (fmt || "json");
+    startExportProgress(isImages);
+    fetch(url, { credentials: "same-origin" })
+      .then((resp) => {
+        if (!resp.ok) {
+          return resp.json().then((j) => { throw new Error(j.error || ("导出失败：" + resp.status)); })
+            .catch(() => { throw new Error("导出失败：" + resp.status); });
+        }
+        const total = parseInt(resp.headers.get("Content-Length") || "0", 10);
+        const reader = resp.body.getReader();
+        const chunks = [];
+        let received = 0;
+        const pump = ({ done, value }) => {
+          if (done) {
+            const blob = new Blob(chunks, { type: resp.headers.get("Content-Type") || "application/octet-stream" });
+            const fname = filenameFromResp(resp) || ("pichome-export." + (isImages ? "zip" : "json"));
+            const a = document.createElement("a");
+            const objUrl = URL.createObjectURL(blob);
+            a.href = objUrl;
+            a.download = fname;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(objUrl), 2000);
+            finishExportProgress();
+            return;
+          }
+          chunks.push(value);
+          received += value.length;
+          if (total) setExportProgress(received / total);
+          return reader.read().then(pump);
+        };
+        return reader.read().then(pump);
+      })
+      .catch((err) => {
+        finishExportProgress();
+        toast(err.message || "导出失败", "error");
+      });
+  }
+
+  if (exportModal) {
+    exportModal.querySelectorAll("[data-close-export]").forEach((el) =>
+      el.addEventListener("click", closeExportModal)
+    );
+    exportModal.querySelectorAll("[data-fmt]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (!pendingExport) return;
+        const fmt = btn.dataset.fmt;
+        const ids = pendingExport.all ? null : pendingExport.ids;
+        closeExportModal();
+        exportAssets(ids, fmt);
+      });
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !exportModal.hidden) closeExportModal();
+    });
+  }
+
+  const exportAllBtn = document.getElementById("exportAllBtn");
+  if (exportAllBtn) {
+    exportAllBtn.addEventListener("click", () => openExportChooser({ all: true }));
+  }
+  const bulkExportBtn = document.getElementById("bulkExportBtn");
+  if (bulkExportBtn) {
+    bulkExportBtn.addEventListener("click", () => {
+      const ids = selectedIds();
+      if (!ids.length) { toast("请先勾选要导出的图片", "error"); return; }
+      openExportChooser({ ids });
     });
   }
 

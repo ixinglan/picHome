@@ -724,40 +724,8 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
 .copy-key-btn:hover { color: var(--accent); border-color: var(--accent); }
 .copy-key-btn svg { width: 15px; height: 15px; }
 
-/* CDN 链接行 */
-.card-url {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--r-xs);
-  overflow: hidden;
-  background: var(--surface-2);
-}
-.card-url input {
-  flex: 1;
-  min-width: 0;
-  padding: var(--s-1) var(--s-2);
-  border: none;
-  background: transparent;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  color: var(--text-3);
-  text-overflow: ellipsis;
-}
-.card-url input:focus { outline: none; color: var(--text); background: var(--surface); }
-.card-url .copy-btn {
-  flex-shrink: 0;
-  min-height: unset;
-  width: 28px;
-  padding: 0;
-  border: none;
-  border-left: 1px solid var(--border);
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-3);
-}
-.card-url .copy-btn:hover { background: var(--accent-soft); color: var(--accent); }
+/* 注意：CDN/MD/HTML 链接已改为 .card-links 内的一行 .link-btn 按钮，
+   旧 .card-url / .url-label / .card-url input / .copy-btn 样式已废弃并移除。 */
 
 .card-meta {
   display: flex;
@@ -1456,23 +1424,28 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
 .copy-name-btn:hover { color: var(--accent); border-color: var(--accent); }
 .copy-name-btn svg { width: 15px; height: 15px; }
 
-/* 卡片多链接：CDN / Markdown / HTML */
-.card-links { display: flex; flex-direction: column; gap: 6px; }
-.card-url {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: stretch;
-}
-.url-label {
-  display: grid; place-items: center;
-  padding: 0 var(--s-2);
+/* 卡片链接：CDN / MD / HTML 合并为一行复制按钮，点击即复制，缩短卡片高度 */
+.card-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.link-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  color: var(--text-2);
   font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--text-4);
-  background: var(--surface-3, var(--surface-2));
-  border-right: 1px solid var(--border);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
 }
+.link-btn:hover {
+  background: var(--accent-soft, var(--surface-3));
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.link-btn:active { transform: translateY(1px); }
 
 /* 顶部上传队列：粘贴按钮 */
 .dock-head-actions { display: flex; align-items: center; gap: var(--s-2); }
@@ -1739,24 +1712,158 @@ body { background-color: transparent; }
   content: ""; flex: 1; height: 1px; background: var(--border);
 }
 
-/* ---------- 灯箱预览（复用 .modal 顶层 70，不遮挡卡片内元素） ---------- */
+/* ---------- 灯箱预览：去外框 + 去棋盘格，仅展示图片；工具栏悬浮于图上（玻璃质感） ---------- */
 .preview-box {
   position: relative;
-  max-width: min(92vw, 1100px);
-  max-height: 88vh;
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  background: var(--surface);
-  box-shadow: var(--shadow-3);
+  display: flex;
+  flex-direction: column;
+  max-width: 96vw;
+  max-height: 92vh;
+  /* 去掉外框：透明、无背景、无阴影、无圆角 */
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
   animation: modal-in var(--dur-base) var(--ease-out-expo) both;
 }
-.preview-box img {
+.preview-toolbar {
+  position: absolute;
+  top: var(--s-3);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 6px var(--s-2);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+.preview-toolbar .icon-btn {
+  width: 34px; height: 34px;
+  color: #fff;
+  border-radius: 999px;
+}
+.preview-toolbar .icon-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+}
+.preview-toolbar .modal-close {
+  position: static;
+  width: 34px; height: 34px;
+  color: #fff;
+  font-size: 20px;
+  border-radius: 999px;
+}
+.preview-toolbar .modal-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+}
+.preview-zoom-label {
+  min-width: 46px;
+  text-align: center;
+  font-size: var(--text-xs);
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+}
+.preview-toolbar-spacer { flex: 1; }
+.preview-stage {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  /* 去掉黑白棋盘格，仅透明背景，图片直接铺在遮罩之上 */
+  padding: 0;
+  max-height: 92vh;
+  overflow: hidden;
+  cursor: grab;
+  background: transparent;
+}
+.preview-stage.grabbing { cursor: grabbing; }
+.preview-stage img {
   display: block;
-  max-width: 100%;
-  max-height: 88vh;
+  max-width: 94vw;
+  max-height: 92vh;
   width: auto; height: auto;
   object-fit: contain;
+  transform-origin: center center;
+  transition: transform 120ms ease;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
+  border-radius: 6px;
 }
+
+/* ---------- 导出进度浮层 ---------- */
+.export-progress {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  animation: fade-in var(--dur-fast) var(--ease-out-quart) both;
+}
+.export-progress[hidden] { display: none; }
+.export-progress-card {
+  width: min(360px, 86vw);
+  padding: var(--s-6);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-3);
+  text-align: center;
+}
+.export-progress-title { font-weight: 600; margin-bottom: var(--s-3); }
+.export-progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.export-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 150ms ease;
+}
+.export-progress-sub {
+  margin-top: var(--s-3);
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+
+/* ---------- 导出方式选择弹窗 ---------- */
+.export-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+}
+.export-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md, 12px);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+.export-choice:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+.export-choice svg { width: 26px; height: 26px; color: var(--accent); }
+.export-choice .ec-title { font-weight: 600; font-size: var(--text-base); }
+.export-choice .ec-sub { font-size: var(--text-xs); color: var(--text-3); line-height: 1.4; }
 
 /* ---------- 删除图床文件按钮：仅图库页显示 ---------- */
 #cloudDeleteBtn { display: none; }

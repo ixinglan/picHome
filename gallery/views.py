@@ -35,7 +35,7 @@ from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -677,17 +677,189 @@ def purge_batch(request):
     return JsonResponse({"ok": True, "purged": len(ids), "ids": ids})
 
 
+# ===== 导出：方便备份与迁移（全部 / 多选 / 单张；JSON 清单或原图 ZIP） =====
+@login_required
+def export_assets(request):
+    """导出图库图片，供备份与迁移。
+
+    使用方式（GET）：
+      - 全部：/export/?all=1
+      - 指定：/export/?ids=1,2,3
+      - 格式：fmt=json（默认，导出链接与元信息清单）
+              fmt=images（逐张回源图床拉取原图，打包成 ZIP 下载）
+    """
+    ids_raw = (request.GET.get("ids") or "").strip()
+    export_all = request.GET.get("all") == "1"
+    fmt = (request.GET.get("fmt") or "json").lower()
+
+    qs = ImageAsset.objects.filter(status=ImageAsset.STATUS_ACTIVE)
+    if not export_all and ids_raw:
+        id_list = [int(x) for x in ids_raw.split(",") if x.strip().isdigit()]
+        qs = qs.filter(id__in=id_list)
+
+    if fmt == "images":
+        return _export_images_zip(qs)
+
+    # 默认：JSON 清单（链接 + 元信息，便于迁移到新环境或做备份清单）
+    items = []
+    for a in qs.prefetch_related("tags"):
+        cdn = a.cdn_url or ""
+        items.append({
+            "id": a.id,
+            "original_name": a.original_name,
+            "object_key": a.object_key,
+            "provider": a.provider,
+            "provider_display": a.provider_display(),
+            "cdn_url": cdn,
+            "size": a.size,
+            "uploaded_at": a.uploaded_at.isoformat() if a.uploaded_at else "",
+            "tags": [t.name for t in a.tags.all()],
+            "markdown": f'![{a.original_name}]({cdn} "{a.original_name}")',
+            "html": f'<img src="{cdn}"/>',
+        })
+
+    payload = {
+        "exported_at": timezone.now().isoformat(),
+        "count": len(items),
+        "items": items,
+    }
+    resp = JsonResponse(payload, json_dumps_params={"ensure_ascii": False, "indent": 2})
+    resp["Content-Type"] = "application/json; charset=utf-8"
+    fname = "pichome-export-%s.json" % timezone.now().strftime("%Y%m%d-%H%M%S")
+    resp["Content-Disposition"] = 'attachment; filename="%s"' % fname
+    return resp
+
+
+def _export_images_zip(qs):
+    """并行回源图床拉取原图，打包成 ZIP 下载（用于本地备份 / 迁移）。
+
+    相比旧版的三处改进：
+    1) 多线程并行拉取（默认 6 线程）：墙钟时间≈最慢单张而不是逐张累加，
+       导出多张时明显更快；
+    2) 写入临时文件后「流式」返回（StreamingHttpResponse 分块），浏览器可
+       立即开始下载并显示进度，不再「点完没反应」地干等；
+    3) 流式前文件已完整生成，因此带上 Content-Length，前端能显示真实百分比。
+
+    单张失败会被跳过，至少一张成功才返回 ZIP，否则返回 400 提示链接可能已失效。
+    """
+    import os
+    import tempfile
+    import threading
+    import urllib3
+    import zipfile
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from django.http import StreamingHttpResponse
+
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    assets = list(qs.prefetch_related("tags"))
+    if not assets:
+        return JsonResponse({"error": "没有可导出的图片"}, status=400)
+
+    # 先并行把各原图拉到内存，主线程再按完成顺序写入同一个 zip 文件。
+    tmp = tempfile.NamedTemporaryFile(
+        prefix="pichome-export-", suffix=".zip", delete=False
+    )
+    tmp_path = tmp.name
+    tmp.close()
+
+    written = 0
+    used = set()
+    lock = threading.Lock()
+
+    def safe_name(i, url):
+        # 安全文件名：取 URL 路径末尾，去查询串与非法字符，避免互相覆盖
+        base = os.path.basename(url.split("?")[0]) or ("image_%d" % (i + 1))
+        base = re.sub(r"[^\w.\-]", "_", base)
+        if not base:
+            base = "image_%d" % (i + 1)
+        with lock:
+            name = base
+            n = 1
+            while name in used:
+                stem, dot, ext = base.rpartition(".")
+                name = ("%s_%d%s%s" % (stem, n, dot, ext)) if dot else ("%s_%d" % (base, n))
+                n += 1
+            used.add(name)
+        return name
+
+    def fetch(a, i):
+        url = a.cdn_url
+        if not url:
+            return None
+        try:
+            r = requests.get(url, timeout=15, verify=False)
+            if r.status_code != 200 or not r.content:
+                return None
+            return (safe_name(i, url), r.content)
+        except Exception:
+            return None
+
+    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as z:
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            futures = {ex.submit(fetch, a, i): a for i, a in enumerate(assets)}
+            for fut in as_completed(futures):
+                res = fut.result()
+                if not res:
+                    continue
+                name, data = res
+                z.writestr(name, data)
+                written += 1
+
+    if written == 0:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        return JsonResponse(
+            {"error": "没有可下载的图片，可能图床链接已失效或图片已被删除"},
+            status=400,
+        )
+
+    fname = "pichome-images-%s.zip" % timezone.now().strftime("%Y%m%d-%H%M%S")
+    size = os.path.getsize(tmp_path)
+
+    # 分块读出临时文件并流式返回；读完后删除临时文件（无论成功或客户端中断）。
+    def gen():
+        try:
+            with open(tmp_path, "rb") as f:
+                while True:
+                    chunk = f.read(65536)
+                    if not chunk:
+                        break
+                    yield chunk
+        finally:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+    resp = StreamingHttpResponse(gen(), content_type="application/zip")
+    resp["Content-Disposition"] = 'attachment; filename="%s"' % fname
+    resp["Content-Length"] = str(size)
+    return resp
+
+
 # ===== 背景图代理：绕过浏览器 CORS，由服务端去拉随机壁纸地址 =====
 logger = logging.getLogger(__name__)
 
 # 服务端缓存（文件级，跨 gunicorn 多 worker 共享）：
-# 避免每次刷新都回源上游（上游 302 + verify=False 较慢），
-# 缓存 5 分钟内复用同一张，接口秒回；过期后重新拉取并更新缓存。
+# - _BG_CACHE_FILE：当前展示的图（5 分钟 TTL），普通加载命中即秒回。
+# - _BG_POOL_FILE：预取好的「下一批」壁纸地址队列。点切换(force=1)时直接
+#   出队一张（秒回，不再现场回源上游），把"点切换→等几秒"的卡顿从后端回源
+#   挪走；真实图片仍由浏览器异步下载，但 URL 已即时返回、且前端会预加载，
+#   体验上几乎无感。
 import os
 import time
+import threading
 
 _BG_TTL = 300
 _BG_CACHE_FILE = "/tmp/pichome_bg_cache.json"
+_BG_POOL_FILE = "/tmp/pichome_bg_pool.json"
+_BG_POOL_MIN = 4          # 池子低于这个数就后台补满
+_BG_UPSTREAM = "https://blog.zhaojq.top/api/bg/random"
+
+_pool_lock = threading.Lock()
 
 
 def _load_bg_cache():
@@ -711,55 +883,122 @@ def _save_bg_cache(url, ts):
         pass
 
 
-@never_cache
-def bg_proxy(request):
-    """代理 blog.zhaojq.top 的随机背景接口，返回 {"url": 真实图片地址}。
+def _load_pool():
+    try:
+        with open(_BG_POOL_FILE, "r") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return [u for u in data if isinstance(u, str)]
+    except Exception:
+        pass
+    return []
 
-    原接口会校验请求 Origin，浏览器从本服务（localhost:28080 等）直接
-    fetch 会被拒（返回 {"detail":"origin not allowed"}）。因此由服务端携带
-    允许的 Origin 去请求，拿到 302 的 Location（真实 Bing 壁纸地址）再转发。
-    公开接口（登录页也需要背景），不做登录校验。
 
-    注意：该服务器证书链不被 certifi 默认信任（容器内 requests 直连会抛
-    SSLError），此处仅用于获取公开的壁纸地址，故关闭证书校验并加重试；
-    失败则回退空串，前端使用纯色背景兜底。
+def _save_pool(pool):
+    try:
+        tmp = _BG_POOL_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(pool, f)
+        os.replace(tmp, _BG_POOL_FILE)
+    except Exception:
+        pass
 
-    缓存：命中且在 TTL 内直接返回，避免重复回源、提升刷新速度。
-    采用文件缓存，跨 gunicorn 多 worker 共享（进程内存不互通）。
-    """
+
+def _fetch_one_bg(timeout=6):
+    """回源上游拿一个 Bing 壁纸地址；失败返回空串（不抛异常）。"""
     import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    headers = {"Origin": "https://blog.zhaojq.top"}
+    try:
+        r = requests.get(
+            _BG_UPSTREAM, headers=headers, allow_redirects=False,
+            timeout=timeout, verify=False,
+        )
+        loc = r.headers.get("Location") or r.headers.get("location")
+        if not loc:
+            try:
+                loc = r.json().get("url")
+            except Exception:
+                loc = None
+        return loc or ""
+    except Exception:
+        return ""
 
-    # 命中缓存：接口秒回，不再回源上游
+
+def _topup_pool():
+    """后台线程补充预取池（不阻塞请求）。"""
+    def _worker():
+        try:
+            with _pool_lock:
+                pool = _load_pool()
+                need = max(0, _BG_POOL_MIN - len(pool))
+                for _ in range(need):
+                    u = _fetch_one_bg()
+                    if u:
+                        pool.append(u)
+                _save_pool(pool)
+        except Exception:
+            pass
+    threading.Thread(target=_worker, daemon=True).start()
+
+
+@never_cache
+def bg_proxy(request):
+    """代理 blog.zhaojq.top 的随机背景接口。
+
+    - 普通加载 / 首次：命中 5 分钟缓存即秒回；未命中才回源并写入缓存。
+    - force=1（点切换）：优先从预取池出队一张（秒回，不现场回源），并异步补满；
+      池空才回退到现场回源，保证点一下一定有反应。返回 {"url", "next"}，
+      next 为下一张地址，供前端提前预加载，让再下一次切换近乎瞬时。
+    - peek=1：仅返回池子队首供前端预加载，不消费（让下一次切换几乎瞬时）。
+    公开接口（登录页也需要背景），不做登录校验。
+    """
+    force = request.GET.get("force") == "1"
+    peek = request.GET.get("peek") == "1"
     now = time.time()
     cached = _load_bg_cache()
+
+    # 池子偏少就异步补满（多数请求都不阻塞）
+    if len(_load_pool()) < _BG_POOL_MIN:
+        _topup_pool()
+
+    # peek：只预告下一张，不消费
+    if peek:
+        pool = _load_pool()
+        return JsonResponse({"url": pool[0] if pool else ""})
+
+    # 主动换一张：从预取池出队（核心优化点，秒回）
+    if force:
+        with _pool_lock:
+            pool = _load_pool()
+            url = pool.pop(0) if pool else ""
+            _save_pool(pool)
+        if url:
+            _save_bg_cache(url, now)
+            _topup_pool()  # 异步补满，供下次切换
+            nxt = _load_pool()
+            return JsonResponse({"url": url, "next": nxt[0] if nxt else ""})
+        # 池空：回退现场回源
+        url = _fetch_one_bg()
+        if url:
+            _save_bg_cache(url, now)
+            _topup_pool()
+            return JsonResponse({"url": url, "next": ""})
+        if cached.get("url"):
+            return JsonResponse({"url": cached["url"], "next": ""})
+        return JsonResponse({"url": "", "next": ""})
+
+    # 普通加载：命中缓存秒回
     if cached.get("url") and (now - cached.get("ts", 0.0)) < _BG_TTL:
         return JsonResponse({"url": cached["url"]})
-
-    upstream = "https://blog.zhaojq.top/api/bg/random"
-    headers = {"Origin": "https://blog.zhaojq.top"}
-    last_err = None
-    loc = ""
-    for _ in range(2):
-        try:
-            r = requests.get(
-                upstream, headers=headers, allow_redirects=False,
-                timeout=6, verify=False,
-            )
-            loc = r.headers.get("Location") or r.headers.get("location")
-            if not loc:
-                try:
-                    loc = r.json().get("url")
-                except Exception:
-                    loc = None
-            if loc:
-                break
-        except Exception as e:
-            last_err = e
-            continue
-
-    if loc:
-        _save_bg_cache(loc, now)
-        return JsonResponse({"url": loc})
-    logger.warning("背景图代理失败: %s", last_err)
+    # 未命中：现场回源
+    url = _fetch_one_bg()
+    if url:
+        _save_bg_cache(url, now)
+        _topup_pool()
+        return JsonResponse({"url": url})
     return JsonResponse({"url": ""})
+
+
+# worker 启动时预热预取池，让首次点击切换也快
+_topup_pool()

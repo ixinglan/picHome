@@ -21,6 +21,7 @@ urlpatterns = [
     path("asset/<int:pk>/local-image/", views.local_image, name="local_image"),
 
     # 图库接口
+    path("export/", views.export_assets, name="export"),
     path("upload", views.upload, name="upload"),
     path("delete", views.delete_asset, name="delete"),
     path("delete_batch", views.delete_batch, name="delete_batch"),

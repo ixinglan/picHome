@@ -5,10 +5,10 @@
 
 {# 顶栏主操作：上传入口收在这里，不再占用页面主体 #}
 {% block topbar_actions %}
-  <button class="btn btn-primary" id="uploadTrigger" type="button">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 16V4m0 0L8 8m4-4 4 4"/>
-      <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+  <button class="btn btn-primary" id="uploadTrigger" type="button" data-page-node-id="nkD7ghYvt2obHjfCZTqCfI">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="pWnFN0bTpsd9pKTxMjPvdJ">
+      <path d="M12 16V4m0 0L8 8m4-4 4 4" data-page-node-id="eKsAdNy7am17fb7p58btXK"/>
+      <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" data-page-node-id="Db114DUVCc0PMilUMUWRLD"/>
     </svg>
     上传
   </button>
@@ -16,181 +16,168 @@
 
 {% block content %}
   {% if not storage_configured %}
-    <div class="notice">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>
-        <path d="M12 9v4M12 17h.01"/>
+    <div class="notice" data-page-node-id="lz1Dz3YjtiyAw5a7FZHlq8">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="egKhTyfxbmx2KzulYVDMtP">
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" data-page-node-id="fKp1CPQuThgNE8DO6ZgEIu"/>
+        <path d="M12 9v4M12 17h.01" data-page-node-id="Ut1jcqDnkDfe0RDUsllTIV"/>
       </svg>
-      <div>
+      <div data-page-node-id="9TKjHukkF2iBq3E39jR3AG">
         尚未启用任何图床，上传会被拒绝。请点击右上角
-        <a href="{% url 'gallery:storage_settings' %}">⚙ 图床设置</a>
+        <a href="{% url 'gallery:storage_settings' %}" data-page-node-id="wl3qRBvfOZBEE4Py5eiXqC">⚙ 图床设置</a>
         选择一个图床并填好必填项后启用（如七牛云 / 阿里云 OSS / 腾讯云 COS / GitHub）。
       </div>
     </div>
   {% endif %}
 
-  <div class="toolbar">
-    <div class="toolbar-row">
-      <form class="search" method="get">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
-          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+  <div class="toolbar" data-page-node-id="wb76nIM4JEY79CNhn2RpiH">
+    <div class="toolbar-row" data-page-node-id="LBwysTRZSfCnGOgmm9dU8G">
+      <form class="search" method="get" data-page-node-id="CKnvHiTdh6a3FXeYmSq7aR">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" data-page-node-id="hxB2lbCT3mLnrDGbwCpOLP">
+          <circle cx="11" cy="11" r="7" data-page-node-id="wcbuObCvl8yPxmllSEZ4Gm"/><path d="m20 20-3.5-3.5" data-page-node-id="l9NLueaLB7cUBBgRwxSl0U"/>
         </svg>
-        <input type="search" id="searchInput" name="q" value="{{ q }}" placeholder="搜索图片名或图床对象名…" autocomplete="off" aria-label="搜索图片">
-        {% if active_tag %}<input type="hidden" name="tag" value="{{ active_tag }}">{% endif %}
-        {% if active_provider %}<input type="hidden" name="provider" value="{{ active_provider }}">{% endif %}
+        <input type="search" id="searchInput" name="q" value="{{ q }}" placeholder="搜索图片名或图床对象名…" autocomplete="off" aria-label="搜索图片" data-page-node-id="oyxdA124xr6HS5XkcFXK6B">
+        {% if active_tag %}<input type="hidden" name="tag" value="{{ active_tag }}" data-page-node-id="imSGVG3mGoEToy6ABDUhaj">{% endif %}
+        {% if active_provider %}<input type="hidden" name="provider" value="{{ active_provider }}" data-page-node-id="tUqa9wn3GRQxi4pfCuuBAP">{% endif %}
       </form>
 
-      <div class="toolbar-meta">
-        <span class="count"><strong>{{ images|length }}</strong> 张</span>
+      <div class="toolbar-meta" data-page-node-id="mPgfyTXc9BwrZRhTrHf5me">
+        <span class="count" data-page-node-id="lSytMBcxjcyzYkAiRN97nr"><strong data-page-node-id="6qXrIYdMVVJ26ZEAD1f89g">{{ images|length }}</strong> 张</span>
         {% if q or active_tag or active_provider %}
-          <a class="btn btn-ghost btn-sm" href="{% url 'gallery:index' %}">清除筛选</a>
+          <a class="btn btn-ghost btn-sm" href="{% url 'gallery:index' %}" data-page-node-id="fhYjFH3cioRkeI2HY4Dtk8">清除筛选</a>
         {% endif %}
+        <button class="btn btn-ghost btn-sm" id="exportAllBtn" type="button" title="导出图库全部图片的链接与元信息（备份 / 迁移）" data-page-node-id="A35oGKz6Bop3GGk28yxsgE">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;margin-right:4px;vertical-align:-2px" data-page-node-id="TBbyuKA2AczbdbsftCiHhI"><path d="M12 3v12M8 11l4 4 4-4" data-page-node-id="ZPkKtAEiZQMC1sfLTmDGKx"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" data-page-node-id="eC36eBHYYllWnh9dNEp98E"/></svg>
+          导出全部
+        </button>
       </div>
     </div>
 
     {% if provider_choices %}
-      <div class="tagbar">
-        <span class="tagbar-label">图床</span>
-        <a class="chip {% if not active_provider %}is-on{% endif %}" href="{% url 'gallery:index' %}">全部</a>
+      <div class="tagbar" data-page-node-id="DOCLyQq0C9GOafIsfzLiAG">
+        <span class="tagbar-label" data-page-node-id="mXgLvUmgBpzkrqZa4s2NdN">图床</span>
+        <a class="chip {% if not active_provider %}is-on{% endif %}" href="{% url 'gallery:index' %}" data-page-node-id="KzChH4mNTgSfcOKFlWzHyQ">全部</a>
         {% for p in provider_choices %}
           <a class="chip {% if active_provider == p.name %}is-on{% endif %}"
-             href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}provider={{ p.name|urlencode }}">
-            {{ p.display }}<em>{{ p.n }}</em>
+             href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}provider={{ p.name|urlencode }}" data-page-node-id="3ZzesGb4PIK8qeukoZkilw">
+            {{ p.display }}<em data-page-node-id="LrOQEszzJWDqFWjk5rELqB">{{ p.n }}</em>
           </a>
         {% endfor %}
       </div>
     {% endif %}
 
     {% if tags %}
-      <div class="tagbar">
-        <span class="tagbar-label">标签</span>
-        <a class="chip {% if not active_tag %}is-on{% endif %}" href="{% url 'gallery:index' %}">全部</a>
+      <div class="tagbar" data-page-node-id="qArB3mirUWFjdCOCWMlDa3">
+        <span class="tagbar-label" data-page-node-id="MoO66dNfVpJufQTHsd10yq">标签</span>
+        <a class="chip {% if not active_tag %}is-on{% endif %}" href="{% url 'gallery:index' %}" data-page-node-id="dZ0vEfILCUoNpMD3aI98tn">全部</a>
         {% for t in tags %}
           <a class="chip {% if active_tag == t.name %}is-on{% endif %}"
-             href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}{% if active_provider %}provider={{ active_provider|urlencode }}&amp;{% endif %}tag={{ t.name|urlencode }}">
-            {{ t.name }}<em>{{ t.n }}</em>
+             href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}{% if active_provider %}provider={{ active_provider|urlencode }}&amp;{% endif %}tag={{ t.name|urlencode }}" data-page-node-id="iRIMxJgcpiD8bECSFHPSAm">
+            {{ t.name }}<em data-page-node-id="gOcE0u8mEfCj3FakDdyYCE">{{ t.n }}</em>
           </a>
         {% endfor %}
       </div>
     {% endif %}
   </div>
 
-  <div class="bulkbar" id="bulkBar" hidden>
-    <label class="check"><input type="checkbox" id="selectAll"> 全选</label>
-    <span class="bulkbar-count" id="pickCount">已选 0 张</span>
-    <div class="bulkbar-actions">
-      <button class="btn btn-sm" id="bulkTagBtn" type="button">改标签</button>
-      <button class="btn btn-sm btn-danger" id="bulkDeleteBtn" type="button">删除所选</button>
+  <div class="bulkbar" id="bulkBar" hidden data-page-node-id="kpFONSXQGkA8Xl2GxtZX1o">
+    <label class="check" data-page-node-id="FUOt46H2oOKFLPEgpecQmf"><input type="checkbox" id="selectAll" data-page-node-id="3dzNSfIAp1bJDmnLGXaxkY"> 全选</label>
+    <span class="bulkbar-count" id="pickCount" data-page-node-id="LuGrjUBsYIzKk3OdeN82mZ">已选 0 张</span>
+    <div class="bulkbar-actions" data-page-node-id="1yPwKBeloovj6tnAcrlWN3">
+      <button class="btn btn-sm" id="bulkTagBtn" type="button" data-page-node-id="6bBShia214qT5muHv5n3iC">改标签</button>
+      <button class="btn btn-sm" id="bulkExportBtn" type="button" title="导出所选图片的链接与元信息" data-page-node-id="VdoIyNCLY62TNENWdO6ZSD">导出所选</button>
+      <button class="btn btn-sm btn-danger" id="bulkDeleteBtn" type="button" data-page-node-id="38oc0TOaD4gXQ51g5u2Mtu">删除所选</button>
     </div>
   </div>
 
-  <div class="grid" id="gallery">
+  <div class="grid" id="gallery" data-page-node-id="cjyx2mQEn3SZTPfPn9ngox">
     {% for img in images %}
-      <article class="card" data-id="{{ img.id }}" data-key="{{ img.object_key }}" style="--i:{{ forloop.counter0 }}">
-        <div class="card-media">
-          <div class="thumb-ph" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <circle cx="8.5" cy="8.5" r="1.8"/>
-              <path d="m21 15-5-5L5 21"/>
+      <article class="card" data-id="{{ img.id }}" data-key="{{ img.object_key }}" data-cdn="{{ img.cdn_url }}" data-name="{{ img.original_name }}" style="--i:{{ forloop.counter0 }}" data-page-node-id="GsiQ8JouiKRgI6e3ZJlxBH">
+        <div class="card-media" data-page-node-id="aBBf5YecMmXpQsPXArhOn4">
+          <div class="thumb-ph" aria-hidden="true" data-page-node-id="ASkUITcGoLns6OCCbSEH36">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="FBEpu9xD8ysIsZ4vQhAFBu">
+              <rect x="3" y="3" width="18" height="18" rx="2" data-page-node-id="IAfaCESEEynqUrV2zuAP5i"/>
+              <circle cx="8.5" cy="8.5" r="1.8" data-page-node-id="Dxtrp7MwfOe5GMcu1ejItk"/>
+              <path d="m21 15-5-5L5 21" data-page-node-id="dQTRohmzyvo2cn13ltOMP6"/>
             </svg>
           </div>
           {% if img.thumb_url %}
           <img src="{{ img.thumb_url }}" alt="{{ img.original_name }}" loading="lazy"
-               onerror="this.closest('.card-media').classList.add('no-img')">
+               onerror="this.closest('.card-media').classList.add('no-img')" data-page-node-id="St9NRbmU3OVMQbCu2HGs5l">
           {% endif %}
 
-          <label class="card-pick" title="选择这张">
-            <input type="checkbox" class="pick-box" value="{{ img.id }}">
-            <span class="visually-hidden">选择 {{ img.original_name }}</span>
+          <label class="card-pick" title="选择这张" data-page-node-id="CPIFFIBtsjwnwSYusWLAD1">
+            <input type="checkbox" class="pick-box" value="{{ img.id }}" data-page-node-id="9Qas7iTi4lOaXxnYurUzgL">
+            <span class="visually-hidden" data-page-node-id="olMUSLl4ZeUdCH7IIuH3Tr">选择 {{ img.original_name }}</span>
           </label>
 
-          <span class="provider-badge" title="图床：{{ img.provider_display }}">{{ img.provider_display }}</span>
+          <span class="provider-badge" title="图床：{{ img.provider_display }}" data-page-node-id="DZqjW9kkEMCLf7TBJbnyj2">{{ img.provider_display }}</span>
 
-          <div class="card-hover">
-            <button class="btn btn-sm preview-btn" type="button" title="预览大图" aria-label="预览大图" data-preview="{{ img.cdn_url }}">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+          <div class="card-hover" data-page-node-id="0XZ1lBs1wvBvI1xs3ZvCWY">
+            <button class="btn btn-sm export-btn" type="button" title="导出该图片" aria-label="导出该图片" data-export="{{ img.id }}" data-page-node-id="frwJtpNB6YHxPpV18MbzGs">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="KiIgKGPCilFfrORToEIUzx">
+                <path d="M12 3v12M8 11l4 4 4-4" data-page-node-id="kFrm69GKkTr7kCFye84LOA"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" data-page-node-id="pOPzymibZBaO8UoCEfjbd9"/>
               </svg>
             </button>
-            <a class="btn btn-sm" href="{{ img.cdn_url }}" target="_blank" rel="noopener" title="查看原图" aria-label="查看原图">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+            <a class="btn btn-sm" href="{{ img.cdn_url }}" target="_blank" rel="noopener" title="查看原图" aria-label="查看原图" data-page-node-id="HnolvCfoBqoSUGi2X8Qkqs">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="lFWJHNfRLty2iyeC6RKzBC">
+                <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" data-page-node-id="cN8trTdcMMXC3n8WoG0OLZ"/><circle cx="12" cy="12" r="3" data-page-node-id="kXUPprfBtcBpSzUSsxJcHd"/>
               </svg>
             </a>
-            <button class="btn btn-sm tag-btn" type="button" title="改标签" aria-label="改标签">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 11V5a2 2 0 0 1 2-2h6l9 9-8 8-9-9Z"/><circle cx="7.5" cy="7.5" r="1.3"/>
+            <button class="btn btn-sm tag-btn" type="button" title="改标签" aria-label="改标签" data-page-node-id="pm7oCSZhINM9BWxOohbxkA">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="Wtkaw7h4sQEr4NoVZ3Ni49">
+                <path d="M3 11V5a2 2 0 0 1 2-2h6l9 9-8 8-9-9Z" data-page-node-id="kCDbiKthLwHJn5jPYOH7p4"/><circle cx="7.5" cy="7.5" r="1.3" data-page-node-id="clOsL9OMgP5CJFRdi3myYr"/>
               </svg>
             </button>
-            <button class="btn btn-sm btn-danger delete-btn" type="button" title="删除" aria-label="删除">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>
+            <button class="btn btn-sm btn-danger delete-btn" type="button" title="删除" aria-label="删除" data-page-node-id="uTrXRf4wDOYLUFTsZDoX1o">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="JuQ3GNhwTFyjUs4IAFcujU">
+                <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" data-page-node-id="I70zMj1Q9xF83AV2iaEvAB"/>
               </svg>
             </button>
           </div>
         </div>
 
-        <div class="card-info">
-          <div class="card-name-row">
-            <div class="card-name" title="{{ img.original_name }}" data-full="{{ img.original_name }}">{{ img.original_name }}</div>
-            <button class="icon-btn copy-name-btn" type="button" title="复制图片名" aria-label="复制图片名">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>
+        <div class="card-info" data-page-node-id="9P3CTfOewrpospCIHQmIfl">
+          <div class="card-name-row" data-page-node-id="fOh7mwE8YhF8FuYTT0oZIi">
+            <div class="card-name" title="{{ img.original_name }}" data-full="{{ img.original_name }}" data-page-node-id="ePrjJ4p5tVzTIGMHdTECZ7">{{ img.original_name }}</div>
+            <button class="icon-btn copy-name-btn" type="button" title="复制图片名" aria-label="复制图片名" data-page-node-id="kRxQEfO41HayJJX5nn7kpa">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="yH5Nj4O4RQL65I9CAomz2i">
+                <rect x="9" y="9" width="11" height="11" rx="2" data-page-node-id="3fTXBmcgyNgyBcapZSimwq"/><path d="M5 15V5a2 2 0 0 1 2-2h8" data-page-node-id="ExPRN8o3oJz8k8p8DR2qfg"/>
               </svg>
             </button>
           </div>
-          <div class="card-key-row">
-            <div class="card-key" title="{{ img.object_key }}">{{ img.object_key }}</div>
-            <button class="icon-btn copy-key-btn" type="button" title="复制对象名" aria-label="复制对象名">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+          <div class="card-key-row" data-page-node-id="clY26fiv1PxA2sS9uSkyuG">
+            <div class="card-key" title="{{ img.object_key }}" data-page-node-id="7DlOhIlG5gnzHv3D5Z4iMr">{{ img.object_key }}</div>
+            <button class="icon-btn copy-key-btn" type="button" title="复制对象名" aria-label="复制对象名" data-page-node-id="M0DHVHBvkTKNFLIK42pWwn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="SU7PEIbqS2AOtUID5Fdjbh"><rect x="9" y="9" width="11" height="11" rx="2" data-page-node-id="1jWtOBocFrMSG7TO2iiWSm"/><path d="M5 15V5a2 2 0 0 1 2-2h8" data-page-node-id="a5du4CAod6Zxd1Oj0xZEV6"/></svg>
             </button>
           </div>
 
-          <div class="card-links">
-            <div class="card-url">
-              <span class="url-label">CDN</span>
-              <input readonly value="{{ img.cdn_url }}" aria-label="CDN 链接" title="{{ img.cdn_url }}">
-              <button class="btn btn-sm copy-btn" type="button" title="复制链接" aria-label="复制链接">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
-              </button>
-            </div>
-            <div class="card-url">
-              <span class="url-label">MD</span>
-              <input readonly value='![{{ img.original_name }}]({{ img.cdn_url }} "{{ img.original_name }}")' aria-label="Markdown 链接" title='![{{ img.original_name }}]({{ img.cdn_url }} "{{ img.original_name }}")'>
-              <button class="btn btn-sm copy-btn" type="button" title="复制 Markdown" aria-label="复制 Markdown">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
-              </button>
-            </div>
-            <div class="card-url">
-              <span class="url-label">HTML</span>
-              <input readonly value='<img src="{{ img.cdn_url }}"/>' aria-label="HTML 链接" title='<img src="{{ img.cdn_url }}"/>'>
-              <button class="btn btn-sm copy-btn" type="button" title="复制 HTML" aria-label="复制 HTML">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
-              </button>
-            </div>
+          <div class="card-links" data-page-node-id="G2GRCykbyslTGtDHvf6Ja0">
+            <button class="link-btn" type="button" data-copy-type="cdn" title="复制 CDN 链接" data-page-node-id="dS5VijyBEwa6HVGofO8sgl">CDN</button>
+            <button class="link-btn" type="button" data-copy-type="md" title="复制 Markdown" data-page-node-id="f3wR1nAoGuT81LJLJMobC0">MD</button>
+            <button class="link-btn" type="button" data-copy-type="html" title="复制 HTML" data-page-node-id="r6zxIqgzIFoX1PtCyFscZP">HTML</button>
           </div>
 
-          <div class="card-meta">
-            <span>{{ img.size|filesizeformat }}</span>
-            <span class="sep">·</span>
-            <span>{{ img.uploaded_at|date:"n月j日 H:i" }}</span>
+          <div class="card-meta" data-page-node-id="7ZE4gCBn3Wn5BDlpHtgO4A">
+            <span data-page-node-id="w3egVABgsCD100hWkXZPms">{{ img.size|filesizeformat }}</span>
+            <span class="sep" data-page-node-id="PNwt0HHinsz3hp4DRisJZW">·</span>
+            <span data-page-node-id="GjGcDFGOBidSFWULfVQOK3">{{ img.uploaded_at|date:"n月j日 H:i" }}</span>
           </div>
 
-          <div class="card-tags">
+          <div class="card-tags" data-page-node-id="02OfCUxMcp9GdDwsJpYiyz">
             {% for t in img.tags.all %}
-              <span class="chip">{{ t.name }}</span>
+              <span class="chip" data-page-node-id="4XQ9NyOWsBjpHawDoMGham">{{ t.name }}</span>
             {% empty %}
-              <span class="chip chip-empty">未分类</span>
+              <span class="chip chip-empty" data-page-node-id="unj6O6753IlqhRiLHjxqNw">未分类</span>
             {% endfor %}
           </div>
         </div>
       </article>
     {% empty %}
-      <div class="empty">
-        <div class="empty-mark" aria-hidden="true"></div>
-        <div class="empty-title">{% if q %}没找到匹配的图片{% else %}图库还是空的{% endif %}</div>
-        <p class="empty-text">
+      <div class="empty" data-page-node-id="mpE13BTslV1buOAAMu7UEC">
+        <div class="empty-mark" aria-hidden="true" data-page-node-id="pZK8XNyQUy8XacWfMeaNt1"></div>
+        <div class="empty-title" data-page-node-id="xCnRRyn1iE0A2B7qfhmLBC">{% if q %}没找到匹配的图片{% else %}图库还是空的{% endif %}</div>
+        <p class="empty-text" data-page-node-id="AqSuOLnccEcCGwJ7z3Wckq">
           {% if q %}
             换个关键词试试，或者清除筛选看看全部图片。
           {% else %}
@@ -200,19 +187,43 @@
       </div>
     {% endfor %}
 
-    <div class="empty" id="noMatch" hidden>
-      <div class="empty-mark" aria-hidden="true"></div>
-      <div class="empty-title">没有匹配的图片</div>
-      <p class="empty-text">调整搜索关键词，或清除筛选看看全部图片。</p>
+    <div class="empty" id="noMatch" hidden data-page-node-id="frsQkisoBQ27aiCXyNw33q">
+      <div class="empty-mark" aria-hidden="true" data-page-node-id="hJBfVWFAIS7P5uaRAsrH7Q"></div>
+      <div class="empty-title" data-page-node-id="NpeLP6kiiKzfE6kngs3fRL">没有匹配的图片</div>
+      <p class="empty-text" data-page-node-id="0mRmiDNGA8y5c2OnOhYYxR">调整搜索关键词，或清除筛选看看全部图片。</p>
     </div>
   </div>
 
-  {# 灯箱预览：点击卡片缩略图或「预览」按钮，在当前页面弹窗 + 遮罩展示原图 #}
-  <div class="modal" id="previewModal" hidden>
-    <div class="modal-mask" data-close-preview></div>
-    <div class="preview-box" role="dialog" aria-modal="true" aria-label="图片预览">
-      <button class="modal-close" type="button" data-close-preview aria-label="关闭">×</button>
-      <img id="previewImg" src="" alt="预览大图">
+  {# 灯箱预览：点击卡片缩略图，在当前页面弹窗 + 遮罩展示原图，支持缩放/平移 #}
+  <div class="modal" id="previewModal" hidden data-page-node-id="wMMqx7jt6Cz6xfFY1JJeDA">
+    <div class="modal-mask" data-close-preview data-page-node-id="T5c9ZPqFsUrL84gCNESQE2"></div>
+    <div class="preview-box" role="dialog" aria-modal="true" aria-label="图片预览" data-page-node-id="Agj2XL9zHkI7yCDQ5O60JF">
+      <div class="preview-toolbar" data-page-node-id="V9a8Xv4KVMRt1tkPBKjpUP">
+        <button class="icon-btn" type="button" data-zoom="out" title="缩小" aria-label="缩小" data-page-node-id="ykwEIHo8gFWPvVq66XlF9L">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" data-page-node-id="wI9VcPb2QIFsW78O1wJDP0"><path d="M5 12h14" data-page-node-id="p24d7qPY5deHYZAxB7SPbD"/></svg>
+        </button>
+        <span class="preview-zoom-label" id="previewZoom" data-page-node-id="U82OEMJdb2EIAfrltNJsxq">100%</span>
+        <button class="icon-btn" type="button" data-zoom="in" title="放大" aria-label="放大" data-page-node-id="ljfN3VJZEANluV1BOUxE3e">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" data-page-node-id="YIhQ23ZCCM6TJ2RhDjExgv"><path d="M12 5v14M5 12h14" data-page-node-id="sQR3twIIXRatL4apoN0EyT"/></svg>
+        </button>
+        <button class="icon-btn" type="button" data-zoom="reset" title="复位（原始大小）" aria-label="复位" data-page-node-id="g0xdHRuhMf2fZ9iEECH82N">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="ZJ2Veopj57VpOMoFFh0v1Y"><path d="M3 9V5a2 2 0 0 1 2-2h4M21 9V5a2 2 0 0 0-2-2h-4M3 15v4a2 2 0 0 0 2 2h4M21 15v4a2 2 0 0 1-2 2h-4" data-page-node-id="mx9jnMSbClxFtsC5Ti6VkF"/></svg>
+        </button>
+        <span class="preview-toolbar-spacer" data-page-node-id="ey5cyYKDknw71SxWADMCjd"></span>
+        <button class="modal-close" type="button" data-close-preview aria-label="关闭" data-page-node-id="80UnWfmQYFtwQ4zXv2jyJB">×</button>
+      </div>
+      <div class="preview-stage" id="previewStage" data-page-node-id="EELAFR7ptAGVYHRqkemL5j">
+        <img id="previewImg" src="" alt="预览大图" data-page-node-id="BwuyTrqiGu1QGHovrxaHuD">
+      </div>
+    </div>
+  </div>
+
+  {# 导出进度浮层：点「导出原图 ZIP」后展示真实进度，避免「等半天以为没反应」 #}
+  <div class="export-progress" id="exportProgress" hidden data-page-node-id="aEP6a0WutwBUtkISAn7Gms">
+    <div class="export-progress-card" data-page-node-id="Pyjn1mixJVNC2KVQxflgTS">
+      <div class="export-progress-title" id="exportProgressTitle" data-page-node-id="jiCz1eIHsUzhUYBptkrsNb">正在准备导出…</div>
+      <div class="export-progress-bar" data-page-node-id="8CqaTavySweE8g5B3BxMDr"><div class="export-progress-fill" id="exportProgressFill" data-page-node-id="iSDx6PZE2g0jKFTanJp6Nf"></div></div>
+      <div class="export-progress-sub" id="exportProgressSub" data-page-node-id="SCoOA3sjYQr5YicjIqRpGE">正在从图床拉取原图并压缩打包，完成后会自动下载</div>
     </div>
   </div>
 {% endblock %}

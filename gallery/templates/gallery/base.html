@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="zh-CN" data-page-node-id="DUcDe0Z5RoVd3XDJs7jAYY">
+<head data-page-node-id="T4bGSDDK5LQ6yONsX6ZoPH">
+  <meta charset="utf-8" data-page-node-id="MYRpV2zKGjUSCr4NVyysJB">
+  <meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="MXASwHme07VDFgCitG25xv">
   <title>{% block title %}七牛云图库{% endblock %}</title>
   {% load static %}
-  <link rel="icon" type="image/svg+xml" href="{% static 'gallery/favicon.svg' %}">
-  <link rel="stylesheet" href="{% static 'gallery/css/style.css' %}">
-  <meta name="csrf-token" content="{{ csrf_token }}">
-  <meta name="color-scheme" content="light dark">
+  <link rel="icon" type="image/svg+xml" href="{% static 'gallery/favicon.svg' %}" data-page-node-id="MnRF7J0Z9cAiYIrjpDCzIV">
+  <link rel="stylesheet" href="{% static 'gallery/css/style.css' %}" data-page-node-id="G8ybFCdbVuSfHfUj8EEv9w">
+  <meta name="csrf-token" content="{{ csrf_token }}" data-page-node-id="OjqsCivNnFRQ95HYcxv9iG">
+  <meta name="color-scheme" content="light dark" data-page-node-id="7eADK8yiDfvCYzngnr9Khh">
   {# 先于渲染确定主题，避免深色模式闪白 #}
   <script>
     (function () {
@@ -22,110 +22,120 @@
     })();
   </script>
 </head>
-<body data-page="{% block page_id %}index{% endblock %}">
+<body data-page="{% block page_id %}index{% endblock %}" data-page-node-id="QTWRLEbdE7JEAO2CgbrcDt">
 
   {# 全站动态背景层：固定铺满、置于最底层，图片由前端从本地代理 /api/bg/ 拉取 #}
-  <div class="bg-layer" id="bgLayer" aria-hidden="true"></div>
+  <div class="bg-layer" id="bgLayer" aria-hidden="true" data-page-node-id="EBx0zzsK8IDFitesxO7s9H"></div>
 
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a class="brand" href="{% url 'gallery:index' %}">
-        <span class="brand-mark" aria-hidden="true">◧</span>
-        <span class="brand-text">pic<em>Home</em></span>
+  <header class="topbar" data-page-node-id="23srvZEDssnxnhm5YGOd1N">
+    <div class="topbar-inner" data-page-node-id="HE4cBeVIKN9JHGcBJFk8kG">
+      <a class="brand" href="{% url 'gallery:index' %}" data-page-node-id="AFRjkgfKMbzWNnT6e1vlsz">
+        <span class="brand-mark" aria-hidden="true" data-page-node-id="3tN5S41OOYhRj2WuZGVBkH">◧</span>
+        <span class="brand-text" data-page-node-id="aZMTL8768VTg38FKVrg1fX">pic<em data-page-node-id="YGhmn8NAj5hQhmPGPsLXmP">Home</em></span>
       </a>
 
       {% if user.is_authenticated %}
-      <nav class="nav">
-        <a href="{% url 'gallery:index' %}" class="nav-link {% if request.path == '/' %}is-active{% endif %}">
-          <span class="label">图库</span>
+      <nav class="nav" data-page-node-id="XG1DHIOE8XgzzFUvOTnTSD">
+        <a href="{% url 'gallery:index' %}" class="nav-link {% if request.path == '/' %}is-active{% endif %}" data-page-node-id="T8jc8bwjUHnDHFCn5oedFA">
+          <span class="label" data-page-node-id="XBMKH29zkvqvagUBzLXhBE">图库</span>
         </a>
-        <a href="{% url 'gallery:history' %}" class="nav-link {% if '/history' in request.path %}is-active{% endif %}">
-          <span class="label">历史</span>
+        <a href="{% url 'gallery:history' %}" class="nav-link {% if '/history' in request.path %}is-active{% endif %}" data-page-node-id="G8bSkF1bL6gdPhGbUuNedq">
+          <span class="label" data-page-node-id="BADEzicbDSYsHMLnJGZCPE">历史</span>
         </a>
-        <a href="{% url 'gallery:recycle' %}" class="nav-link {% if '/recycle' in request.path %}is-active{% endif %}">
-          <span class="label">回收站</span>
-          {% if deleted_count %}<span class="badge">{{ deleted_count }}</span>{% endif %}
+        <a href="{% url 'gallery:recycle' %}" class="nav-link {% if '/recycle' in request.path %}is-active{% endif %}" data-page-node-id="baSHaVqh2VOIYmpsOaKOsp">
+          <span class="label" data-page-node-id="4MgnMjqxOevLRLcx7rns55">回收站</span>
+          {% if deleted_count %}<span class="badge" data-page-node-id="EjosWnpNLLRCBJmO7QMEUd">{{ deleted_count }}</span>{% endif %}
         </a>
       </nav>
       {% endif %}
 
-      <div class="topbar-actions">
+      <div class="topbar-actions" data-page-node-id="CMhzO0ks3OUKu0VIk7kCkT">
         {# 各页自有的主操作（如上传按钮） #}
         {% block topbar_actions %}{% endblock %}
 
         {# 图床设置：多图床配置入口 #}
         {% if user.is_authenticated %}
-        <a class="icon-btn" id="storageSettingsBtn" href="{% url 'gallery:storage_settings' %}" type="button" title="图床设置" aria-label="图床设置">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+        <a class="icon-btn" id="storageSettingsBtn" href="{% url 'gallery:storage_settings' %}" type="button" title="图床设置" aria-label="图床设置" data-page-node-id="f6H0pkpvcDuId2DUGLFFBH">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="sTOW2VWJDaAY2ssLO8ABFq">
+            <circle cx="12" cy="12" r="3" data-page-node-id="RDPgd9hn51J5Atuu3EHhAQ"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" data-page-node-id="x4CV7BKVV6FM3G9410JuZb"/>
           </svg>
         </a>
 
         {# 云端删除：直接删图床对象，不依赖本地记录 #}
-        <button class="icon-btn" id="cloudDeleteBtn" type="button" title="按对象名删除图床文件" aria-label="按对象名删除图床文件">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M17.5 19H7a4 4 0 0 1-.6-7.96A6 6 0 0 1 17.9 9.5h.1a3.5 3.5 0 0 1 .5 6.96"/>
-            <path d="M10 13.5 14 17.5M14 13.5 10 17.5"/>
+        <button class="icon-btn" id="cloudDeleteBtn" type="button" title="按对象名删除图床文件" aria-label="按对象名删除图床文件" data-page-node-id="Z9NnrFCpu0GY1LTk4Hbqps">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="FpIDNDZpcryBirXobYl2uG">
+            <path d="M17.5 19H7a4 4 0 0 1-.6-7.96A6 6 0 0 1 17.9 9.5h.1a3.5 3.5 0 0 1 .5 6.96" data-page-node-id="4j5TuxVVH23imITiiFFuXd"/>
+            <path d="M10 13.5 14 17.5M14 13.5 10 17.5" data-page-node-id="gBQr5YeV5192MHms1fsTBy"/>
           </svg>
         </button>
         {% endif %}
 
-        <div class="theme-switch" role="group" aria-label="主题切换">
-          <button class="theme-opt" type="button" data-theme-val="light" title="浅色" aria-label="浅色主题">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-              <circle cx="12" cy="12" r="4"/>
-              <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>
+        {% if user.is_authenticated %}
+        {# 背景切换：点击换一张随机壁纸；不点则用当前 / 缓存的背景（仅登录后可见） #}
+        <button class="icon-btn" id="bgSwitchBtn" type="button" title="换一张背景" aria-label="换一张背景" data-page-node-id="RD02SwmXF7Pxw420uGddgf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="w1HZD8APsz52qg8HrTyWZY">
+            <path d="M21 12a9 9 0 1 1-3-6.7L21 8" data-page-node-id="tFmJa4umzVf2Nn63TibCPR"/>
+            <path d="M21 3v5h-5" data-page-node-id="PwZbFlTo5XhnyXgYinlJqQ"/>
+          </svg>
+        </button>
+        {% endif %}
+
+        <div class="theme-switch" role="group" aria-label="主题切换" data-page-node-id="JHiQRlI6DiNUHlJesph1vx">
+          <button class="theme-opt" type="button" data-theme-val="light" title="浅色" aria-label="浅色主题" data-page-node-id="ecGHvJ4Dar6QXTe0Z3cx3t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" data-page-node-id="hp0V2D5VNUx65qIE0Dy3pQ">
+              <circle cx="12" cy="12" r="4" data-page-node-id="qJhmgCIzzCsEgPrDc7M1hj"/>
+              <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" data-page-node-id="0IRmLn2feb4Yj8gxP98gJo"/>
             </svg>
           </button>
-          <button class="theme-opt" type="button" data-theme-val="dark" title="深色" aria-label="深色主题">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/>
+          <button class="theme-opt" type="button" data-theme-val="dark" title="深色" aria-label="深色主题" data-page-node-id="zZ5aAJD2Y3wdxI9a1tF1Gl">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="oRVqb9CA6MS27zThhU3EKI">
+              <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" data-page-node-id="snaP3R6MxO1xKok4wWeKcA"/>
             </svg>
           </button>
-          <button class="theme-opt" type="button" data-theme-val="auto" title="跟随系统" aria-label="跟随系统主题">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
-              <path d="M21 3v5h-5"/>
-              <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
-              <path d="M3 21v-5h5"/>
+          <button class="theme-opt" type="button" data-theme-val="auto" title="跟随系统" aria-label="跟随系统主题" data-page-node-id="3gzodAyb5dXTHaLnouvglm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="z5ooZNcgj6hE7Pxn2TTED9">
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8" data-page-node-id="CHYxUiECwVWEj25G0yDvv8"/>
+              <path d="M21 3v5h-5" data-page-node-id="bEEUZi74cIL9qkXIM64PrW"/>
+              <path d="M21 12a9 9 0 0 1-15 6.7L3 16" data-page-node-id="5b0LEEsuhQXoQLJPOtWuwF"/>
+              <path d="M3 21v-5h5" data-page-node-id="MxOGwEVJxIeQsojBy1Vpyb"/>
             </svg>
           </button>
         </div>
 
         {% if user.is_authenticated %}
-        <div class="user" id="userMenu">
+        <div class="user" id="userMenu" data-page-node-id="EnwyjVpA41OJPdBOLTVxuz">
           <button class="user-trigger" type="button" id="userTrigger"
-                  aria-haspopup="true" aria-expanded="false" aria-label="用户菜单">
+                  aria-haspopup="true" aria-expanded="false" aria-label="用户菜单" data-page-node-id="0KFWDO6NU1Z1YAi4ThoNAF">
             {% if avatar_url %}
-              <img class="user-avatar" src="{{ avatar_url }}" alt="">
+              <img class="user-avatar" src="{{ avatar_url }}" alt="" data-page-node-id="kh8jSIVx3wANfLArBoXA9O">
             {% else %}
-              <span class="user-avatar user-avatar--text">{{ user.username|first|upper }}</span>
+              <span class="user-avatar user-avatar--text" data-page-node-id="HbGJ44n4ZNMBLsBGqywLjG">{{ user.username|first|upper }}</span>
             {% endif %}
-            <span class="user-name" title="{{ nickname }}">{{ nickname }}</span>
-            <svg class="user-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="m6 9 6 6 6-6"/>
+            <span class="user-name" title="{{ nickname }}" data-page-node-id="yKxIRWZyvqZjoK6OMwWBBA">{{ nickname }}</span>
+            <svg class="user-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="ue6fEHg2Zr1nGrvsxU9Gqn">
+              <path d="m6 9 6 6 6-6" data-page-node-id="EyF94l4U2De5bSVnajHBxu"/>
             </svg>
           </button>
 
-          <div class="user-dropdown" id="userDropdown" hidden role="menu" aria-label="用户菜单">
-            <div class="user-dropdown-head">
-              <span class="user-dropdown-name">{{ nickname }}</span>
-              <span class="user-dropdown-uname">@{{ user.username }}</span>
+          <div class="user-dropdown" id="userDropdown" hidden role="menu" aria-label="用户菜单" data-page-node-id="uvAMcJkBJAFoHoZ73DB6eB">
+            <div class="user-dropdown-head" data-page-node-id="rcKIrcGogbZjWALr4ZvnWs">
+              <span class="user-dropdown-name" data-page-node-id="VLLdQ7GcuiOmJPLBqN6QgS">{{ nickname }}</span>
+              <span class="user-dropdown-uname" data-page-node-id="ANAMIuSUvPWiOHs0D3PbBi">@{{ user.username }}</span>
             </div>
-            <button class="user-item" type="button" id="openAccountBtn" role="menuitem">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="8" r="4"/>
-                <path d="M5.5 21a6.5 6.5 0 0 1 13 0"/>
+            <button class="user-item" type="button" id="openAccountBtn" role="menuitem" data-page-node-id="VBfIAxxmWfLuIIKVQFSYHh">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="dd5KTtnZdAOylcu2aY00pJ">
+                <circle cx="12" cy="8" r="4" data-page-node-id="4xQm4Uw7WX3atQUGMcmE7b"/>
+                <path d="M5.5 21a6.5 6.5 0 0 1 13 0" data-page-node-id="CZ9VaSoWMkEeVuZSxjGloS"/>
               </svg>
               用户管理
             </button>
-            <form method="post" action="{% url 'gallery:logout' %}" class="user-logout-form">
+            <form method="post" action="{% url 'gallery:logout' %}" class="user-logout-form" data-page-node-id="2FlECnR6iSV4ZthVhvYQDm">
               {% csrf_token %}
-              <button class="user-item user-item--danger" type="submit" role="menuitem">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/>
-                  <path d="M10 17l-5-5 5-5M5 12h10"/>
+              <button class="user-item user-item--danger" type="submit" role="menuitem" data-page-node-id="XBUBx8hbHxcbXZJKE9aryj">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="r1vaAbsMA3L5DC91p335Xa">
+                  <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" data-page-node-id="byDM3XT9qE9EdvC3U9giYs"/>
+                  <path d="M10 17l-5-5 5-5M5 12h10" data-page-node-id="aKRap6yKlUISmyVBvydtim"/>
                 </svg>
                 退出登录
               </button>
@@ -137,143 +147,174 @@
     </div>
   </header>
 
-  <main class="container">
+  <main class="container" data-page-node-id="Qyz3zePFuwkNWOGLnEwl7k">
     {% block content %}{% endblock %}
   </main>
 
   {# ===== 整页拖拽上传覆盖层 ===== #}
-  <div class="drop-overlay" id="dropOverlay" hidden>
-    <div class="drop-overlay-inner">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 16V4m0 0L8 8m4-4 4 4"/>
-        <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+  <div class="drop-overlay" id="dropOverlay" hidden data-page-node-id="aQ0T8iGREvT8jNeos2EFau">
+    <div class="drop-overlay-inner" data-page-node-id="uFdSCrwe489bOmHH7HD6Pr">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="om3kWElEw9XAKruFp9WuEA">
+        <path d="M12 16V4m0 0L8 8m4-4 4 4" data-page-node-id="lsMbFndjwq5esbIttBwUtj"/>
+        <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" data-page-node-id="LbulIdyaqweHfSsvvStLg3"/>
       </svg>
-      <div class="drop-overlay-title">松开即可上传</div>
-      <div class="drop-overlay-sub">图片会上传到七牛云，本地同时留一份到回收站可恢复</div>
+      <div class="drop-overlay-title" data-page-node-id="aMJnlVQFjNXEFxPOW09U81">松开即可上传</div>
+      <div class="drop-overlay-sub" data-page-node-id="iWAi3APBrkFHDLkYCA1jWB">图片会上传到七牛云，本地同时留一份到回收站可恢复</div>
     </div>
   </div>
 
   {# ===== 底部上传队列（浮动，不占主区） ===== #}
-  <div class="dock" id="uploadDock" hidden>
-    <div class="dock-head">
-      <div class="dock-title">待上传 <span id="dockCount">0</span> 张</div>
-      <div class="dock-head-actions">
-        <button class="btn btn-ghost btn-sm" id="pasteBtn" type="button" title="粘贴剪贴板里的图片">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>
+  <div class="dock" id="uploadDock" hidden data-page-node-id="lAWLUALZvB8csQghgwKN7X">
+    <div class="dock-head" data-page-node-id="2gd7Ull8wiYLBj5AZbPWBE">
+      <div class="dock-title" data-page-node-id="lb9139Ra3NIahWKMZqIa0H">待上传 <span id="dockCount" data-page-node-id="jKAGdXAUVdEUUVi9SgGoOx">0</span> 张</div>
+      <div class="dock-head-actions" data-page-node-id="STSjprJZNCskAQDvrmVTeZ">
+        <button class="btn btn-ghost btn-sm" id="pasteBtn" type="button" title="粘贴剪贴板里的图片" data-page-node-id="X5iaTh7AD7YF708BDW4VY8">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="wE9uux4yP6Qb7nGL7I3CUl">
+            <rect x="9" y="9" width="11" height="11" rx="2" data-page-node-id="SZdQLZyE7cqpgr4ThACPST"/><path d="M5 15V5a2 2 0 0 1 2-2h8" data-page-node-id="k3kkq130aYPbcTHXOg7fcS"/>
           </svg>
           粘贴
         </button>
-        <button class="icon-btn dock-close" id="dockClose" type="button" title="关闭" aria-label="关闭上传队列">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M6 6l12 12M18 6L6 18"/>
+        <button class="icon-btn dock-close" id="dockClose" type="button" title="关闭" aria-label="关闭上传队列" data-page-node-id="2PDTaDsKSuZ7So5F1muEC8">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" data-page-node-id="BPikD15EDrDzW7VUUod8Xf">
+            <path d="M6 6l12 12M18 6L6 18" data-page-node-id="Tat2TiWiVBaeVv6GJzAfNw"/>
           </svg>
         </button>
       </div>
     </div>
-    <div class="dock-list" id="dockList"></div>
-    <div class="dock-foot">
-      <input id="tagInput" type="text" placeholder="标签（可选），多个用逗号分隔">
-      <button class="btn btn-primary" id="uploadBtn">开始上传</button>
-      <button class="btn btn-ghost" id="clearBtn">清空</button>
+    <div class="dock-list" id="dockList" data-page-node-id="qbngyk0txti3rNRQziVTIP"></div>
+    <div class="dock-foot" data-page-node-id="5OSrFV95mU8AzP2H28VwjH">
+      <input id="tagInput" type="text" placeholder="标签（可选），多个用逗号分隔" data-page-node-id="UCzg7APtEDuxVGnqBHM4qd">
+      <button class="btn btn-primary" id="uploadBtn" data-page-node-id="mY8Aoe8CMIM5WXWPVh5ZJK">开始上传</button>
+      <button class="btn btn-ghost" id="clearBtn" data-page-node-id="92IBxy3Pn3rOlBD9MVpLD0">清空</button>
     </div>
-    <p class="visually-hidden" id="uploadStatus" role="status" aria-live="polite"></p>
+    <p class="visually-hidden" id="uploadStatus" role="status" aria-live="polite" data-page-node-id="EkABvpJctFHl6RtrYfMIpU"></p>
   </div>
 
   {# ===== 云端删除：独立入口 ===== #}
-  <div class="modal" id="cloudModal" hidden>
-    <div class="modal-mask" data-close-cloud></div>
-    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="cloudTitle">
-      <button class="modal-close" type="button" data-close-cloud aria-label="关闭">×</button>
-      <h3 class="modal-title" id="cloudTitle">删除图床文件</h3>
-      <p class="modal-body">
-        直接按对象名删除图床上的文件，<strong>不校验本地是否存在</strong>。
+  <div class="modal" id="cloudModal" hidden data-page-node-id="pe1MjBoYQVk1EZWLEUIbV3">
+    <div class="modal-mask" data-close-cloud data-page-node-id="KvCZYCdqfOu4Ulzpap9UHq"></div>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="cloudTitle" data-page-node-id="tBt4mnFD6H9zMn9P4e6hZZ">
+      <button class="modal-close" type="button" data-close-cloud aria-label="关闭" data-page-node-id="EgcC41vzZWtz2D8neOxuFb">×</button>
+      <h3 class="modal-title" id="cloudTitle" data-page-node-id="L04SCSjmkrOT10CyZkeUlV">删除图床文件</h3>
+      <p class="modal-body" data-page-node-id="Oos7oB1i6SVOyFOWVHOQiH">
+        直接按对象名删除图床上的文件，<strong data-page-node-id="QOEGiWvQF0xFY7Sp0fHp2i">不校验本地是否存在</strong>。
         存在即删除，不存在会提示。此操作不可撤销。
       </p>
-      <div class="modal-input">
+      <div class="modal-input" data-page-node-id="7pR9Mc1epNlgvkaiDLEf71">
         <input id="cloudKey" class="modal-field" type="text" autocomplete="off" spellcheck="false"
-               placeholder="img/20260901_175700_123_ab12.jpg">
-        <p class="modal-hint">对象名可在图片卡片上查看，或到图床控制台空间里复制。</p>
+               placeholder="img/20260901_175700_123_ab12.jpg" data-page-node-id="Lkt1B4kFUQosD19FF4IFUa">
+        <p class="modal-hint" data-page-node-id="UtgB6YV0O2eAm57LT2ZAtz">对象名可在图片卡片上查看，或到图床控制台空间里复制。</p>
       </div>
-      <div class="modal-actions">
-        <button class="btn" type="button" data-close-cloud>取消</button>
-        <button class="btn btn-danger-solid" id="cloudDeleteSubmit" type="button">删除</button>
+      <div class="modal-actions" data-page-node-id="MRHxbdmGankhyRttE429bi">
+        <button class="btn" type="button" data-close-cloud data-page-node-id="FCG4cN11C2O5dHP4deCTZU">取消</button>
+        <button class="btn btn-danger-solid" id="cloudDeleteSubmit" type="button" data-page-node-id="fWCKwGnBaaIziWwZK8An0X">删除</button>
       </div>
     </div>
   </div>
 
   {# ===== 用户管理：头像 / 昵称 / 密码 ===== #}
-  <div class="modal" id="accountModal" hidden>
-    <div class="modal-mask" data-close-account></div>
-    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="accountTitle" style="width:min(460px,100%)">
-      <button class="modal-close" type="button" data-close-account aria-label="关闭">×</button>
-      <h3 class="modal-title" id="accountTitle">用户管理</h3>
+  <div class="modal" id="accountModal" hidden data-page-node-id="41mm2MkHgTj4mbd8wXsDZQ">
+    <div class="modal-mask" data-close-account data-page-node-id="Va1U4adEOpDWyRbbC3JSSU"></div>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="accountTitle" style="width:min(460px,100%)" data-page-node-id="ekiZxlJRdI9BFpLHIdLjA0">
+      <button class="modal-close" type="button" data-close-account aria-label="关闭" data-page-node-id="BQBUx3KyGSdwbGKyCuBmMK">×</button>
+      <h3 class="modal-title" id="accountTitle" data-page-node-id="FtbGEVCk10IkXV6CzfAPXi">用户管理</h3>
 
-      <div class="acct-avatar-wrap">
-        <div class="acct-avatar" id="acctAvatar">
+      <div class="acct-avatar-wrap" data-page-node-id="ws8EQn0GZsQeydV5AxGbp0">
+        <div class="acct-avatar" id="acctAvatar" data-page-node-id="hNmSqMkrjr2qxLnzCEuaRH">
           {% if avatar_url %}
-            <img src="{{ avatar_url }}" alt="头像">
+            <img src="{{ avatar_url }}" alt="头像" data-page-node-id="TEAQ6ZaJAcG5g6qy0Lav4Y">
           {% else %}
-            <span class="acct-avatar-text" id="acctAvatarText">{{ user.username|first|upper }}</span>
+            <span class="acct-avatar-text" id="acctAvatarText" data-page-node-id="nqtxoHxlRzsEiJwFL6lImk">{{ user.username|first|upper }}</span>
           {% endif %}
         </div>
-        <div>
-          <div class="field-label">头像</div>
-          <label class="btn btn-sm btn-ghost acct-upload">
+        <div data-page-node-id="dwBLabtsKgHtWtQWh6aBeN">
+          <div class="field-label" data-page-node-id="L3jKhrveYfzLmbGgWfVnF5">头像</div>
+          <label class="btn btn-sm btn-ghost acct-upload" data-page-node-id="7Ez7qFzkZwXQ80dY0siOuI">
             选择图片
-            <input type="file" id="avatarInput" accept="image/*" hidden>
+            <input type="file" id="avatarInput" accept="image/*" hidden data-page-node-id="UVIeMh4auUqEIBxa5qrrmn">
           </label>
-          <p class="modal-hint">支持 JPG / PNG / WebP，建议正方形</p>
+          <p class="modal-hint" data-page-node-id="8dm7adZu3lfins7V5IQ0KP">支持 JPG / PNG / WebP，建议正方形</p>
         </div>
       </div>
 
-      <label class="field">
-        <span class="field-label">用户昵称</span>
-        <input type="text" id="nicknameInput" value="{{ nickname|default:user.username }}" maxlength="40" autocomplete="off">
+      <label class="field" data-page-node-id="c5zsFZVCIAXV0olGVupQIy">
+        <span class="field-label" data-page-node-id="1hnwqb8kwd78YuwhqJhpcp">用户昵称</span>
+        <input type="text" id="nicknameInput" value="{{ nickname|default:user.username }}" maxlength="40" autocomplete="off" data-page-node-id="YBC9Lr4TiKUosvAHh4ki35">
       </label>
 
-      <div class="acct-divider"><span>修改密码</span></div>
+      <div class="acct-divider" data-page-node-id="pwrKE0cxw5XiHJz8CKPZj3"><span data-page-node-id="5oCH7IZwXMoWjUySivINP0">修改密码</span></div>
 
-      <label class="field">
-        <span class="field-label">当前密码</span>
-        <input type="password" id="oldPwd" autocomplete="current-password">
+      <label class="field" data-page-node-id="KbCQZXydQ1JGXu2n56azlq">
+        <span class="field-label" data-page-node-id="Aa2kU6OPXvcSLNxr6PvfGb">当前密码</span>
+        <input type="password" id="oldPwd" autocomplete="current-password" data-page-node-id="JxOxzWm6OtmN7bz9icWDGE">
       </label>
-      <label class="field">
-        <span class="field-label">新密码</span>
-        <input type="password" id="newPwd" autocomplete="new-password">
+      <label class="field" data-page-node-id="q91ZCD4o7xDWASu0ZCnAZb">
+        <span class="field-label" data-page-node-id="nz4Eq3JHGiPHz9miYxRbys">新密码</span>
+        <input type="password" id="newPwd" autocomplete="new-password" data-page-node-id="8OjujRvzoYupGbsDwcR2Zj">
       </label>
-      <label class="field">
-        <span class="field-label">确认新密码</span>
-        <input type="password" id="newPwd2" autocomplete="new-password">
+      <label class="field" data-page-node-id="1Ipzi7JScvo7XyHPCsczU3">
+        <span class="field-label" data-page-node-id="WXEk4sk0gujme5vsbtiQ4E">确认新密码</span>
+        <input type="password" id="newPwd2" autocomplete="new-password" data-page-node-id="wnDMzMBMHWsBFLcQqo5u1F">
       </label>
 
-      <p class="form-error" id="acctError" hidden></p>
+      <p class="form-error" id="acctError" hidden data-page-node-id="0elCLbfEPqrku1b7lnKU73"></p>
 
-      <div class="modal-actions">
-        <button class="btn" type="button" data-close-account>取消</button>
-        <button class="btn btn-primary" id="saveAccountBtn" type="button">保存</button>
+      <div class="modal-actions" data-page-node-id="oorTvtHtFLUZL0neHDbf28">
+        <button class="btn" type="button" data-close-account data-page-node-id="FfQ3ZUyZOBJ5a1u4znRmlw">取消</button>
+        <button class="btn btn-primary" id="saveAccountBtn" type="button" data-page-node-id="cvnn2CHhf5nix08ir23B49">保存</button>
       </div>
     </div>
   </div>
 
   {# ===== 通用弹窗：确认 / 输入 ===== #}
-  <div class="modal" id="modal" hidden>
-    <div class="modal-mask" id="modalMask"></div>
-    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <h3 class="modal-title" id="modalTitle">提示</h3>
-      <div class="modal-body" id="modalBody"></div>
-      <div class="modal-input" id="modalInputWrap" hidden>
-        <input id="modalInput" class="modal-field" type="text" autocomplete="off">
-        <p class="modal-hint">多个标签用逗号或空格分隔</p>
+  <div class="modal" id="modal" hidden data-page-node-id="EEquzxpsOE4Bf1xmEs9DFU">
+    <div class="modal-mask" id="modalMask" data-page-node-id="vCNsnfTEIlkThxPvr7Knxj"></div>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalTitle" data-page-node-id="m9fJSZ2W18dWtMWTS72qqh">
+      <h3 class="modal-title" id="modalTitle" data-page-node-id="QOSaQHsyhIijIOQHWCjEZ1">提示</h3>
+      <div class="modal-body" id="modalBody" data-page-node-id="oFIyHg1RG0gDIrtaACpaHG"></div>
+      <div class="modal-input" id="modalInputWrap" hidden data-page-node-id="pg0MDGFNjL6qFPycnRBj7X">
+        <input id="modalInput" class="modal-field" type="text" autocomplete="off" data-page-node-id="dk5VPA3hWID6nLXJekclBJ">
+        <p class="modal-hint" data-page-node-id="4bJ41HJIFHoEN4FIe4ZVlB">多个标签用逗号或空格分隔</p>
       </div>
-      <div class="modal-actions">
-        <button class="btn" id="modalCancel" type="button">取消</button>
-        <button class="btn btn-primary" id="modalOk" type="button">确定</button>
+      <div class="modal-actions" data-page-node-id="vHNqIoZhKXw9qD0u6ge7tV">
+        <button class="btn" id="modalCancel" type="button" data-page-node-id="2mjDyQ5pagtnEzqEJDw1Gr">取消</button>
+        <button class="btn btn-primary" id="modalOk" type="button" data-page-node-id="dDKulPgtiCmAHEJ7iuCQSI">确定</button>
       </div>
     </div>
   </div>
 
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  {# ===== 导出方式选择：JSON 清单 / 原图 ZIP ===== #}
+  <div class="modal" id="exportModal" hidden data-page-node-id="JJmQFJ6wHWP4cQE1IX4e8q">
+    <div class="modal-mask" data-close-export data-page-node-id="MFx2rzLAZznM7JBxVz3TT4"></div>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle" style="width:min(460px,100%)" data-page-node-id="0isCIYy89eSJQIREKwnkK9">
+      <button class="modal-close" type="button" data-close-export aria-label="关闭" data-page-node-id="Wy9ScUfyQcbKyNQKBL9Ibr">×</button>
+      <h3 class="modal-title" id="exportModalTitle" data-page-node-id="1bFwQBH5YyEPuHHuBLHVMB">选择导出方式</h3>
+      <p class="modal-body" data-page-node-id="PNwStCKuD63GEANCHeGkuv">导出 <strong id="exportCountText" data-page-node-id="J9CMSquJiKm2zvBuA2D0XZ">所选</strong> 图片：</p>
+      <div class="export-choices" data-page-node-id="k2ZAcdThQ9pGP2qBkED2jc">
+        <button class="export-choice" type="button" data-fmt="json" data-page-node-id="wAxZprOkxpsjiNNw5ecQhs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="c4q2PbCsYq2TYbYBYBiwK8">
+            <path d="M14 3v5h5M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" data-page-node-id="71BxtiuqDvoK1SKOTgJ5JD"/>
+            <path d="M9 13h6M9 17h6" data-page-node-id="aXMddQqNOsruxBxI5ZW6PD"/>
+          </svg>
+          <div class="ec-title" data-page-node-id="RP1zafd78nCM2vrO8EW43Y">链接清单 (JSON)</div>
+          <div class="ec-sub" data-page-node-id="Uw0ZlxDYg6MWHsxSsvGAoS">含 CDN / Markdown / HTML 与标签，便于迁移备份</div>
+        </button>
+        <button class="export-choice" type="button" data-fmt="images" data-page-node-id="nQFE0TENpMcjCcZVBa8yo7">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="7voGR9eBfXbAhzhkHtC7RA">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" data-page-node-id="E8RvleRjGBb4TzrKnYA4xq"/>
+            <path d="M12 3v12M8 11l4 4 4-4" data-page-node-id="wu7nG6Q9UwEzMGjK1wMIaW"/>
+          </svg>
+          <div class="ec-title" data-page-node-id="Wcgq8AcmoAQvXCrioebl4d">图片文件 (ZIP)</div>
+          <div class="ec-sub" data-page-node-id="p6yOvBuDF4huctQHyrOfXu">直接下载原图压缩包，多张图片较慢请稍候</div>
+        </button>
+      </div>
+      <div class="modal-actions" data-page-node-id="SxQAAqpPNP9aS5zAI1pXnu">
+        <button class="btn" type="button" data-close-export data-page-node-id="IAh46Dyu8CbiVFIkwooinM">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" data-page-node-id="3MiaKnRaaZ6mHrdtot9Ksp"></div>
 
   <script>
     /* 主题切换：浅色 / 深色 / 跟随系统（auto 实时监听系统偏好） */
@@ -315,12 +356,20 @@
       sync();
     })();
 
-    /* 动态背景：每次刷新向本地代理请求一张随机壁纸（绕过浏览器 CORS）。
-       加载失败 / 无图时回退到纯色（bg-layer 自带 --bg 兜底），不影响使用。 */
+    /* 动态背景：
+       - 页面加载时仅用本地缓存瞬时显示（刷新不再白屏、也不自动换新图）；
+       - 仅在「无缓存」（首次访问）时自动拉一张；
+       - 点击顶部「换一张背景」按钮才请求新壁纸并缓存。 */
     (function () {
       var layer = document.getElementById("bgLayer");
       if (!layer) return;
       var KEY = "pichome-bg";
+      /* 提前把某张图塞进浏览器缓存，下次切换点完即显 */
+      function preload(url) {
+        if (!url) return;
+        var i = new Image();
+        i.src = url;
+      }
       function applyBg(url) {
         if (!url) { layer.classList.add("is-loaded"); return; }
         var img = new Image();
@@ -331,22 +380,40 @@
         img.onerror = function () { layer.classList.add("is-loaded"); };
         img.src = url;
       }
-      /* 1) 先用本地缓存瞬时显示，刷新不再白屏等待 */
+      function setBg(url) {
+        if (!url) { layer.classList.add("is-loaded"); return; }
+        try { localStorage.setItem(KEY, JSON.stringify({ url: url, ts: Date.now() })); } catch (e) {}
+        applyBg(url);
+      }
+      /* 切换背景：force=1 从后端预取池出队（秒回），并预加载下一张 */
+      function refreshBg() {
+        fetch("/api/bg/?force=1")
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (d && d.url) setBg(d.url);
+            preload(d && d.next);   /* 预热下一张，让再下一次切换近乎瞬时 */
+          })
+          .catch(function () { layer.classList.add("is-loaded"); });
+      }
+      /* 仅预告下一张供预加载，不消费 */
+      function peekBg() {
+        fetch("/api/bg/?peek=1")
+          .then(function (r) { return r.json(); })
+          .then(function (d) { preload(d && (d.next || d.url)); })
+          .catch(function () {});
+      }
+      /* 加载时只用缓存显示，不自动拉新图 */
       var cached = null;
       try { cached = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) {}
-      if (cached && cached.url) applyBg(cached.url);
-      /* 2) 后台静默拉取最新背景：成功则更新缓存并淡入，失败回退纯色 */
-      fetch("/api/bg/")
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-          if (d && d.url) {
-            try { localStorage.setItem(KEY, JSON.stringify({ url: d.url, ts: Date.now() })); } catch (e) {}
-            applyBg(d.url);
-          } else {
-            layer.classList.add("is-loaded");
-          }
-        })
-        .catch(function () { layer.classList.add("is-loaded"); });
+      if (cached && cached.url) {
+        applyBg(cached.url);
+        peekBg();   /* 首屏就预热下一张，第一次点切换也快 */
+      } else {
+        refreshBg();   /* 首次无缓存：拉一张，之后刷新都用缓存 */
+      }
+      /* 点击切换按钮才请求新背景（force=1 从预取池出队，几乎瞬时） */
+      var sw = document.getElementById("bgSwitchBtn");
+      if (sw) sw.addEventListener("click", refreshBg);
     })();
   </script>
 
