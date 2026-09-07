@@ -391,18 +391,23 @@
     return e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
   }
   window.addEventListener("dragenter", (e) => {
+    if (document.body.classList.contains("demo")) return;  // 演示账号禁止上传
     if (!hasFiles(e)) return;
     e.preventDefault();
     dragDepth++;
     dropOverlay.hidden = false;
   });
-  window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+  window.addEventListener("dragover", (e) => {
+    if (hasFiles(e)) e.preventDefault();  // 演示账号也阻止浏览器跳转，但不展示上传遮罩
+    if (document.body.classList.contains("demo")) return;
+  });
   window.addEventListener("dragleave", (e) => {
     if (!hasFiles(e)) return;
     dragDepth = Math.max(0, dragDepth - 1);
     if (dragDepth === 0) dropOverlay.hidden = true;
   });
   window.addEventListener("drop", (e) => {
+    if (document.body.classList.contains("demo")) { if (hasFiles(e)) e.preventDefault(); return; }
     if (!hasFiles(e)) return;
     e.preventDefault();
     dragDepth = 0;

@@ -40,6 +40,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # 演示账号只读拦截：放在认证中间件之后，可拿到 request.user
+    "gallery.middleware.DemoReadOnlyMiddleware",
 ]
 
 ROOT_URLCONF = "pichome_web.urls"

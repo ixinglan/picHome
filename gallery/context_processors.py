@@ -19,4 +19,6 @@ def user_profile(request):
     return {
         "avatar_url": avatar_url,
         "nickname": profile.nickname or request.user.username,
+        # 演示账号标记：模板据此隐藏写操作入口（真正的拦截由 DemoReadOnlyMiddleware 兜底）
+        "is_demo": bool(profile.is_demo),
     }

@@ -22,7 +22,7 @@
     })();
   </script>
 </head>
-<body data-page="{% block page_id %}index{% endblock %}" data-page-node-id="QTWRLEbdE7JEAO2CgbrcDt">
+<body data-page="{% block page_id %}index{% endblock %}"{% if is_demo %} class="demo"{% endif %} data-page-node-id="QTWRLEbdE7JEAO2CgbrcDt">
 
   {# 全站动态背景层：固定铺满、置于最底层，图片由前端从本地代理 /api/bg/ 拉取 #}
   <div class="bg-layer" id="bgLayer" aria-hidden="true" data-page-node-id="EBx0zzsK8IDFitesxO7s9H"></div>
@@ -148,6 +148,9 @@
   </header>
 
   <main class="container" data-page-node-id="Qyz3zePFuwkNWOGLnEwl7k">
+    {% if is_demo %}
+    <div class="demo-banner" role="note">演示账号 · 仅供浏览体验，不能进行任何操作（上传 / 删除 / 导出 / 改资料均不可用）</div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 

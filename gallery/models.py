@@ -156,6 +156,9 @@ class UserProfile(models.Model):
         "auth.User", on_delete=models.CASCADE, related_name="profile", verbose_name="用户"
     )
     nickname = models.CharField(max_length=40, blank=True, verbose_name="昵称")
+    # 演示账号标记：为 True 时由 DemoReadOnlyMiddleware 强制只读，
+    # 仅能登录浏览/预览，任何写操作（上传/删除/改资料/导出等）都被 403 拦截。
+    is_demo = models.BooleanField(default=False, verbose_name="演示账号")
     # 用 FileField 而非 ImageField：仅存文件路径，图片合法性在视图层按 content_type 校验，
     # 避免依赖 Pillow（容器内当前未安装），头像展示由 account_avatar 视图流式返回。
     avatar = models.FileField(upload_to="avatars/", blank=True, verbose_name="头像")

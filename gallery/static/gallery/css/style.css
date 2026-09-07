@@ -1868,3 +1868,40 @@ body { background-color: transparent; }
 /* ---------- 删除图床文件按钮：仅图库页显示 ---------- */
 #cloudDeleteBtn { display: none; }
 body[data-page="index"] #cloudDeleteBtn { display: inline-grid; }
+
+/* ========== 演示账号：仅浏览，隐藏所有写操作入口 ==========
+   注意：以下只是体验层隐藏；真正的服务端拦截由 DemoReadOnlyMiddleware 兜底，
+   即使绕过 UI 直接发写请求也会被 403，不会改到任何数据。 */
+body.demo #uploadTrigger,
+body.demo #bulkBar,
+body.demo .card-pick,
+body.demo #cloudDeleteBtn,
+body.demo #storageSettingsBtn,
+body.demo #openAccountBtn,
+body.demo .card-hover .tag-btn,
+body.demo .card-hover .delete-btn,
+body.demo .restore-btn,
+body.demo .purge-btn,
+body.demo #saveBtn,
+body.demo [data-activate],
+body.demo [data-delete],
+body.demo .cfg-actions,
+body.demo #dropOverlay,
+body.demo #uploadDock { display: none !important; }
+
+.demo-banner {
+  margin: 0 0 var(--s-4, 16px);
+  padding: 10px 14px;
+  border-radius: var(--r-md, 12px);
+  font-size: var(--text-sm, 14px);
+  line-height: 1.5;
+  color: #6b4a00;
+  background: linear-gradient(180deg, #fff7e0, #ffefbf);
+  border: 1px solid #f3d27a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+}
+[data-theme="dark"] .demo-banner {
+  color: #ffe9a8;
+  background: linear-gradient(180deg, #3a2f12, #2e2710);
+  border-color: #5a4a1e;
+}
