@@ -21,6 +21,17 @@ ALLOWED_HOSTS = [
     h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()
 ]
 
+# ===== 反向代理(HTTPS)下的 CSRF / 安全配置 =====
+# nginx 以 HTTPS 对外、HTTP 对内转发；必须告诉 Django 真实协议是 https，
+# 否则 is_secure() 为 False，浏览器 POST 携带的 Origin: https://... 会与
+# good_origin(http://...) 不匹配，触发 CSRF 403。
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# 显式声明可信源（涵盖 ALLOWED_HOSTS 中所有主机，统一用 https）
+CSRF_TRUSTED_ORIGINS = ["https://" + h for h in ALLOWED_HOSTS]
+# 生产环境(DEBUG=False)下让会话/Cookie 仅通过 HTTPS 传输
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
