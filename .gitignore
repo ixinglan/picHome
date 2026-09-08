@@ -30,3 +30,13 @@ media_data
 
 # 服务器部署演示 demo 隐藏，避免暴露服务器信息
 DEPLOY.md
+
+# PyInstaller 构建产物（desktop/build.spec 是交付物，需保留）
+build/
+dist/
+
+# Tauri 桌面端构建产物（源码与配置入库，编译产物与打包二进制不入库）
+desktop/src-tauri/target/
+desktop/src-tauri/bin/
+desktop/src-tauri/gen/
+desktop/node_modules/

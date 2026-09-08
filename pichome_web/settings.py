@@ -14,6 +14,22 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+# ===== 桌面模式（Tauri / 本地独立运行）=====
+# 由环境变量 PICHOME_DESKTOP=1 开启；开启后数据库 / 媒体 / 静态根目录
+# 统一落到「用户数据目录」，不再依赖项目根目录，适合打包成桌面 App。
+PICHOME_DESKTOP = os.getenv("PICHOME_DESKTOP", "0") == "1"
+DESKTOP_PORT = int(os.getenv("PICHOME_DESKTOP_PORT", "14567"))
+if PICHOME_DESKTOP:
+    # macOS: ~/Library/Application Support/pichome；可用 PICHOME_DATA_DIR 覆盖
+    DESKTOP_DATA_DIR = Path(
+        os.getenv("PICHOME_DATA_DIR")
+        or os.path.expanduser("~/Library/Application Support/pichome")
+    )
+    DESKTOP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+else:
+    DESKTOP_DATA_DIR = None
+
+
 # ===== Django 基础 =====
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-key-please-change")
 DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
@@ -22,15 +38,27 @@ ALLOWED_HOSTS = [
 ]
 
 # ===== 反向代理(HTTPS)下的 CSRF / 安全配置 =====
-# nginx 以 HTTPS 对外、HTTP 对内转发；必须告诉 Django 真实协议是 https，
-# 否则 is_secure() 为 False，浏览器 POST 携带的 Origin: https://... 会与
-# good_origin(http://...) 不匹配，触发 CSRF 403。
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-# 显式声明可信源（涵盖 ALLOWED_HOSTS 中所有主机，统一用 https）
-CSRF_TRUSTED_ORIGINS = ["https://" + h for h in ALLOWED_HOSTS]
-# 生产环境(DEBUG=False)下让会话/Cookie 仅通过 HTTPS 传输
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
+if PICHOME_DESKTOP:
+    # 桌面模式：本地 http 直连（无反向代理）。
+    # 必须显式声明带端口的可信源，否则 Django 6.1 的 Origin 校验会因
+    # 浏览器 Origin(http://127.0.0.1:PORT) 与 good_origin(无端口) 不一致而 403。
+    SECURE_PROXY_SSL_HEADER = None
+    CSRF_TRUSTED_ORIGINS = [
+        f"http://127.0.0.1:{DESKTOP_PORT}",
+        f"http://localhost:{DESKTOP_PORT}",
+    ]
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+else:
+    # nginx 以 HTTPS 对外、HTTP 对内转发；必须告诉 Django 真实协议是 https，
+    # 否则 is_secure() 为 False，浏览器 POST 携带的 Origin: https://... 会与
+    # good_origin(http://...) 不匹配，触发 CSRF 403。
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    # 显式声明可信源（涵盖 ALLOWED_HOSTS 中所有主机，统一用 https）
+    CSRF_TRUSTED_ORIGINS = ["https://" + h for h in ALLOWED_HOSTS]
+    # 生产环境(DEBUG=False)下让会话/Cookie 仅通过 HTTPS 传输
+    SESSION_COOKIE_SECURE = not DEBUG
+    CSRF_COOKIE_SECURE = not DEBUG
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -80,7 +108,11 @@ WSGI_APPLICATION = "pichome_web.wsgi.application"
 # ===== 数据库（开发用 SQLite）=====
 # 数据库文件路径可用 DJANGO_DB_PATH 覆盖（Docker 部署时指向持久化卷目录）。
 # 本地开发不设置该变量，则默认用项目根目录下的 db.sqlite3，行为不变。
-DB_PATH = os.getenv("DJANGO_DB_PATH", str(BASE_DIR / "db.sqlite3"))
+# 桌面模式：数据库落到用户数据目录（可写）；否则用 DJANGO_DB_PATH 或项目根目录
+if PICHOME_DESKTOP:
+    DB_PATH = str(DESKTOP_DATA_DIR / "db.sqlite3")
+else:
+    DB_PATH = os.getenv("DJANGO_DB_PATH", str(BASE_DIR / "db.sqlite3"))
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -107,10 +139,13 @@ USE_TZ = True
 
 # ===== 静态资源 / 媒体文件 =====
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "static_collected"
-
-MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+if PICHOME_DESKTOP:
+    # 静态/媒体都落到用户数据目录（MEDIA 需要可写；STATIC 由 collectstatic 生成）
+    STATIC_ROOT = DESKTOP_DATA_DIR / "static_collected"
+    MEDIA_ROOT = DESKTOP_DATA_DIR / "media"
+else:
+    STATIC_ROOT = BASE_DIR / "static_collected"
+    MEDIA_ROOT = BASE_DIR / "media"
 
 # 生产环境（DEBUG=False）下，让 Whitenoise 压缩并提供 STATIC_ROOT 里的静态文件
 STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"

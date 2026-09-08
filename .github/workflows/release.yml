@@ -1,0 +1,71 @@
+name: Release macOS (dmg)
+
+# 打 tag（v 开头）推送到仓库即触发：云端 macos 跑构建 -> 生成 .dmg -> 挂到 GitHub Release
+# 例：git tag v0.1.0 && git push origin v0.1.0
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Create venv & install backend deps
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller waitress
+
+      # 冻结后端：生成 desktop/src-tauri/bin/pichome-server（Tauri sidecar）
+      - name: Freeze backend -> src-tauri/bin/pichome-server
+        run: bash desktop/build_backend.sh
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend deps
+        working-directory: desktop
+        run: npm install
+
+      # tauri-action 在云端 macOS 上跑 tauri build（无沙箱，可正常生成 dmg）
+      - name: Build & publish (tauri-action)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ===== 如需 Apple 开发者签名（去除 Gatekeeper 拦截），取消注释并配置仓库 Secrets =====
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: 'PicHome ${{ github.ref_name }}'
+          releaseBody: |
+            macOS 桌面端安装包（.dmg）。
+            未签名版本首次打开可能提示「无法验证开发者」，右键 -> 打开 即可。
+          releaseDraft: true
+          prerelease: false
+          # 本地 tauri.conf.json 用 ["app"] 规避沙箱；云端这里强制产出 app + dmg
+          args: '--bundles app dmg'
