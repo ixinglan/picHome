@@ -1,6 +1,7 @@
 name: Release macOS (dmg)
 
-# 打 tag（v 开头）推送到仓库即触发：云端 macos 跑构建 -> 生成 .dmg -> 挂到 GitHub Release
+# 打 v* tag 推送到 main 即触发：云端 macOS 双架构（Apple Silicon + Intel）跑构建
+# -> 各产出一份 .dmg -> 合到一个 GitHub Release（draft）。
 # 例：git tag v0.1.0 && git push origin v0.1.0
 on:
   push:
@@ -11,8 +12,20 @@ permissions:
   contents: write
 
 jobs:
-  build-macos:
-    runs-on: macos-latest
+  # ===== 1) 双架构并行构建：每个 runner 出自己架构的原生 dmg =====
+  build:
+    name: Build (${{ matrix.label }})
+    strategy:
+      fail-fast: false          # 一个架构失败不影响另一个
+      matrix:
+        include:
+          - os: macos-latest     # Apple Silicon (arm64)
+            arch: aarch64
+            label: apple-silicon
+          - os: macos-13         # Intel x64（GitHub 唯一仍提供 Intel 的 runner）
+            arch: x64
+            label: intel
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -30,7 +43,7 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller waitress
 
-      # 冻结后端：生成 desktop/src-tauri/bin/pichome-server（Tauri sidecar）
+      # 冻结后端：生成 desktop/src-tauri/bin/pichome-server（Tauri sidecar，按当前架构原生编译）
       - name: Freeze backend -> src-tauri/bin/pichome-server
         run: bash desktop/build_backend.sh
 
@@ -46,10 +59,9 @@ jobs:
         working-directory: desktop
         run: npm install
 
-      # 生成前端静态目录 desktop/dist
+      # 生成前端静态目录 desktop/dist（占位）。
       # 说明：本应用 WebView 实际由 Django sidecar 在 http://127.0.0.1:14567 提供服务，
-      # tauri.conf.json 的 frontendDist 只是 Tauri 构建期必须的占位目录（会被打进 .app，但运行时不被加载）。
-      # 云端 CI 是干净环境，dist 不存在会导致 tauri build 失败，因此这里生成占位 index.html。
+      # tauri.conf.json 的 frontendDist 只是 Tauri 构建期必须的占位目录（打进 .app 但运行时不被加载）。
       - name: Generate frontend dist placeholder
         working-directory: desktop
         run: |
@@ -57,8 +69,9 @@ jobs:
           printf '<!doctype html>\n<html lang="zh-CN">\n<head><meta charset="utf-8"><title>PicHome</title></head>\n<body><p>Loading PicHome...</p></body>\n</html>\n' > dist/index.html
           echo "[ci] generated desktop/dist/index.html"
 
-      # tauri-action 在云端 macOS 上跑 tauri build（无沙箱，可正常生成 dmg）
-      - name: Build & publish (tauri-action)
+      # 只构建、不发布（不传 tagName，避免和 release 任务抢着建 Release）。
+      # includeUpdaterJson=false 进一步避免任何 Release 相关 API 调用。
+      - name: Build (tauri-action)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,12 +86,34 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: desktop
-          tagName: ${{ github.ref_name }}
-          releaseName: 'PicHome ${{ github.ref_name }}'
-          releaseBody: |
-            macOS 桌面端安装包（.dmg）。
-            未签名版本首次打开可能提示「无法验证开发者」，右键 -> 打开 即可。
-          releaseDraft: true
-          prerelease: false
-          # 本地 tauri.conf.json 用 ["app"] 规避沙箱；云端这里强制产出 app + dmg
           args: '--bundles app dmg'
+          includeUpdaterJson: false
+
+      - name: Upload dmg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-${{ matrix.label }}
+          path: desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+  # ===== 2) 等两个架构都构建完，合到一个 Release（draft）=====
+  release:
+    name: Create Release (both archs)
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - name: Download all dmgs
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release (draft)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" --draft \
+            --title "PicHome ${{ github.ref_name }}" \
+            --notes "macOS 桌面端安装包（Apple Silicon / Intel 双架构）。
+
+          未签名版本首次打开可能提示「无法验证开发者」，右键 -> 打开 即可。" \
+            artifacts/*/*.dmg
