@@ -97,6 +97,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "gallery.context_processors.user_profile",
+                "gallery.context_processors.desktop_flag",
             ],
         },
     },

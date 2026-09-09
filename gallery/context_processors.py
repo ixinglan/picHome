@@ -1,9 +1,16 @@
 """模板上下文处理器：为所有页面注入当前用户的资料信息。"""
 import os
 
+from django.conf import settings
 from django.urls import reverse
 
 from .models import UserProfile
+
+
+def desktop_flag(request):
+    """向所有模板注入 is_desktop：桌面端（PICHOME_DESKTOP=1）为 True。
+    模板据此隐藏「查看原图」等仅对云图床有意义的入口。"""
+    return {"is_desktop": bool(getattr(settings, "PICHOME_DESKTOP", False))}
 
 
 def user_profile(request):

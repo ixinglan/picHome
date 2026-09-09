@@ -8,6 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="{% static 'gallery/favicon.svg' %}" data-page-node-id="MnRF7J0Z9cAiYIrjpDCzIV">
   <link rel="stylesheet" href="{% static 'gallery/css/style.css' %}" data-page-node-id="G8ybFCdbVuSfHfUj8EEv9w">
   <meta name="csrf-token" content="{{ csrf_token }}" data-page-node-id="OjqsCivNnFRQ95HYcxv9iG">
+  <script>window.IS_DESKTOP = {{ is_desktop|yesno:"true,false" }};</script>
   <meta name="color-scheme" content="light dark" data-page-node-id="7eADK8yiDfvCYzngnr9Khh">
   {# 先于渲染确定主题，避免深色模式闪白 #}
   <script>

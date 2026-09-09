@@ -8,7 +8,7 @@ use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
-/// 保存后端 sidecar 子进程，便于「重启后端 / 退出」时清理，避免端口 14567 残留。
+/// 保存后端 sidecar 子进程，便于退出时清理，避免端口 14567 残留。
 struct AppState {
     sidecar: Mutex<Option<Child>>,
 }
@@ -86,15 +86,14 @@ fn main() {
                 let _ = win.show();
             }
 
-            // 4) 菜单栏托盘图标 + 右键菜单（模式 A：Dock 常驻 + 菜单栏辅助入口）。
+            // 4) 菜单栏托盘图标 + 右键菜单。
+            //    右键菜单按用户要求去掉了「重启后端」，只保留最常用入口。
             let open_item = MenuItem::with_id(app, "open", "打开 PicHome", true, None::<&str>)?;
-            let restart_item =
-                MenuItem::with_id(app, "restart", "重启后端", true, None::<&str>)?;
             let folder_item =
                 MenuItem::with_id(app, "folder", "打开数据目录", true, None::<&str>)?;
             let sep = PredefinedMenuItem::separator(app)?;
             let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open_item, &restart_item, &folder_item, &sep, &quit_item])?;
+            let menu = Menu::with_items(app, &[&open_item, &folder_item, &sep, &quit_item])?;
 
             // 菜单栏图标用单色 template（只取透明轮廓），macOS 自动适配明暗模式。
             let menubar_icon = tauri::image::Image::from_bytes(
@@ -113,22 +112,6 @@ fn main() {
                         if let Some(w) = app.get_webview_window("main") {
                             let _ = w.show();
                             let _ = w.set_focus();
-                        }
-                    }
-                    "restart" => {
-                        kill_backend(app);
-                        match spawn_backend(app) {
-                            Ok(child) => {
-                                if let Some(state) = app.try_state::<AppState>() {
-                                    *state.sidecar.lock().unwrap() = Some(child);
-                                }
-                                wait_backend_ready();
-                                if let Some(w) = app.get_webview_window("main") {
-                                    let _ = w.show();
-                                    let _ = w.set_focus();
-                                }
-                            }
-                            Err(e) => eprintln!("[pichome] 重启后端失败: {}", e),
                         }
                     }
                     "folder" => {
@@ -168,13 +151,28 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // 点击关闭按钮：隐藏窗口「收进菜单栏」，应用继续在后台运行（不再 kill 后端）。
-            // 真正退出请通过菜单栏图标的「退出」。
+            // 点击关闭按钮：隐藏窗口（不杀后端、不退出进程），应用继续留在程序坞和菜单栏。
+            // 想彻底退出请用菜单栏图标右键的「退出」。
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
                 api.prevent_close();
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| match event {
+            // 点击程序坞图标（窗口已隐藏）时重新打开窗口；
+            // 若用户勾选了「程序坞中保留」，点击程序坞图标同样走这里。
+            tauri::RunEvent::Reopen { .. } => {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
+            // 任意退出路径都先回收后端子进程，避免端口 14567 残留。
+            tauri::RunEvent::ExitRequested { .. } => {
+                kill_backend(app);
+            }
+            _ => {}
+        });
 }

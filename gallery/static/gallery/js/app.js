@@ -524,7 +524,7 @@
         (prov ? '<span class="provider-badge" title="图床：' + escapeHtml(prov) + '">' + escapeHtml(prov) + '</span>' : '') +
         '<div class="card-hover">' +
           '<button class="btn btn-sm export-btn" type="button" title="导出该图片" aria-label="导出该图片" data-export="' + d.id + '">' + ICON_DOWNLOAD + '</button>' +
-          '<a class="btn btn-sm" href="' + escapeHtml(d.cdn_url) + '" target="_blank" rel="noopener" title="查看原图" aria-label="查看原图">' + ICON_EYE + '</a>' +
+          (window.IS_DESKTOP ? '' : '<a class="btn btn-sm" href="' + escapeHtml(d.cdn_url) + '" target="_blank" rel="noopener" title="查看原图" aria-label="查看原图">' + ICON_EYE + '</a>') +
           '<button class="btn btn-sm tag-btn" type="button" title="改标签" aria-label="改标签">' + ICON_TAG + '</button>' +
           '<button class="btn btn-sm btn-danger delete-btn" type="button" title="删除" aria-label="删除">' + ICON_TRASH + '</button>' +
         '</div>' +

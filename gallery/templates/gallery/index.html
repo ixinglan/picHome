@@ -118,11 +118,13 @@
                 <path d="M12 3v12M8 11l4 4 4-4" data-page-node-id="kFrm69GKkTr7kCFye84LOA"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" data-page-node-id="pOPzymibZBaO8UoCEfjbd9"/>
               </svg>
             </button>
+            {% if not is_desktop %}
             <a class="btn btn-sm" href="{{ img.cdn_url }}" target="_blank" rel="noopener" title="查看原图" aria-label="查看原图" data-page-node-id="HnolvCfoBqoSUGi2X8Qkqs">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="lFWJHNfRLty2iyeC6RKzBC">
                 <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" data-page-node-id="cN8trTdcMMXC3n8WoG0OLZ"/><circle cx="12" cy="12" r="3" data-page-node-id="kXUPprfBtcBpSzUSsxJcHd"/>
               </svg>
             </a>
+            {% endif %}
             <button class="btn btn-sm tag-btn" type="button" title="改标签" aria-label="改标签" data-page-node-id="pm7oCSZhINM9BWxOohbxkA">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="Wtkaw7h4sQEr4NoVZ3Ni49">
                 <path d="M3 11V5a2 2 0 0 1 2-2h6l9 9-8 8-9-9Z" data-page-node-id="kCDbiKthLwHJn5jPYOH7p4"/><circle cx="7.5" cy="7.5" r="1.3" data-page-node-id="clOsL9OMgP5CJFRdi3myYr"/>

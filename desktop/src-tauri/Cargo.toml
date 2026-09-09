@@ -9,8 +9,9 @@ rust-version = "1.70"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# tray-icon 提供 macOS 菜单栏（顶部状态栏）托盘图标，对应模式 A 的辅助入口
-# image-png 用于从 PNG 字节加载菜单栏图标（include_bytes! + Image::from_bytes）
+# tray-icon 提供 macOS 菜单栏（顶部状态栏）托盘图标，对应模式 A 的辅助入口。
+# image-png 用于从 PNG 字节加载菜单栏图标（include_bytes! + Image::from_bytes）。
+# 菜单栏图标使用 icon_as_template(true)，macOS 会按当前主题自动着色，不再是一坨蓝色方块。
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
