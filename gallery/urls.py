@@ -26,6 +26,8 @@ urlpatterns = [
     path("delete", views.delete_asset, name="delete"),
     path("delete_batch", views.delete_batch, name="delete_batch"),
     path("delete_remote", views.delete_remote, name="delete_remote"),
+    path("sync_cloud", views.sync_to_cloud, name="sync_to_cloud"),
+    path("sync_all", views.sync_all, name="sync_all"),
     path("set_tags", views.set_tags, name="set_tags"),
 
     # 统一对外 API（CLI / AI Agent）

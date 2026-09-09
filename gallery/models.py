@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.urls import reverse
 
 
 class Tag(models.Model):
@@ -54,6 +55,11 @@ class ImageAsset(models.Model):
     )
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="删除时间")
+    # 是否已同步到「生效图床」。未配置图床 / 仅本地保存时上传为 False，
+    # 用户后续在「图床设置」配置好图床后，可手动触发把本地图片同步上去 → 置 True。
+    synced_to_cloud = models.BooleanField(
+        default=False, verbose_name="是否已同步到图床"
+    )
 
     class Meta:
         ordering = ["-uploaded_at"]
@@ -68,11 +74,23 @@ class ImageAsset(models.Model):
         return self.status == self.STATUS_DELETED
 
     def provider_display(self):
-        """图床的中文展示名（取自注册表）。"""
+        """图床的中文展示名（取自注册表）。未配置图床时显示「本地存储」。"""
         from .storage.registry import get_provider_class
 
+        if not self.provider:
+            return "本地存储"
         cls = get_provider_class(self.provider)
         return cls.display_name if cls else self.provider
+
+    @property
+    def display_url(self):
+        """
+        画廊展示用链接：有图床链接优先用图床（含缩略图样式）；
+        否则回退到本地文件服务路由，保证「未配置图床 / 仅本地」的图片也能正常显示。
+        """
+        if self.cdn_url:
+            return self.cdn_url
+        return reverse("gallery:local_image", args=[self.id])
 
     @property
     def thumb_url(self):

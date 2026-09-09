@@ -71,13 +71,17 @@ jobs:
 
       # 只构建、不发布（不传 tagName，避免和 release 任务抢着建 Release）。
       # includeUpdaterJson=false 进一步避免任何 Release 相关 API 调用。
+      # 只打 .app：Tauri 的 .app 打包不依赖 GUI，headless CI 可正常完成。
+      # 注意：不要把 dmg 交给 Tauri 内置的 create-dmg —— 它最后会用 osascript
+      # 调 Finder 做窗口美化，在无图形会话的 CI runner 上会卡死/报错，导致整个
+      # `tauri build` 以退出码 1 失败。dmg 改由下面「Package dmg via hdiutil」手动生成。
       - name: Build (tauri-action)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # ===== Apple 开发者签名（去除 Gatekeeper 拦截）=====
           # 在仓库 Settings → Secrets and variables → Actions 中配置以下 6 个 Secrets 后即可生效。
-          # 未配置时这些变量为空，tauri-action 自动跳过签名（仅生成未签名的 dmg）。
+          # 未配置时这些变量为空，tauri-action 自动跳过签名（仅生成未签名的 .app）。
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -86,8 +90,28 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: desktop
-          args: '--bundles app dmg'
+          args: '--bundles app'
           includeUpdaterJson: false
+
+      # 手动用 hdiutil 生成 dmg（完全 headless，不依赖 Finder / AppleScript）。
+      # 先挂载临时可读写镜像并加入「应用程序」快捷方式，再压缩为最终 dmg。
+      - name: Package dmg via hdiutil
+        working-directory: desktop/src-tauri/target/release/bundle
+        run: |
+          APP="macos/PicHome.app"
+          VER="${{ github.ref_name }}"   # 例如 v0.1.0
+          VER="${VER#v}"                  # 去掉前缀 v -> 0.1.0
+          ARCH="${{ matrix.arch }}"       # aarch64 / x64
+          DMG="dmg/PicHome_${VER}_${ARCH}.dmg"
+          mkdir -p dmg
+          RW="dmg/rw.${ARCH}.dmg"
+          hdiutil create -volname "PicHome" -srcfolder "$APP" -format UDRW -size 400m "$RW"
+          DEV=$(hdiutil attach -readwrite -noverify -noautoopen -nobrowse "$RW" | grep '^/dev/' | sed 1q | awk '{print $1}')
+          ln -s /Applications "/Volumes/PicHome/Applications"
+          hdiutil detach "$DEV"
+          hdiutil convert "$RW" -format UDZO -o "$DMG"
+          rm -f "$RW"
+          ls -lh "$DMG"
 
       - name: Upload dmg artifact
         uses: actions/upload-artifact@v4

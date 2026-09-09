@@ -105,9 +105,11 @@ def _soft_delete(asset, remote=True):
     """
     删图床对象 + 本地移入回收站 + 标记删除。
     remote=False 时跳过云端删除（用于云端已删、只需同步本地状态的场景）。
+    仅当该图片确实已同步到图床（synced_to_cloud=True）才去删云端，
+    避免把本地未同步图片的 local/ 前缀对象名误传到云端删除接口。
     """
     provider = get_active_provider() if remote else None
-    if remote and provider is not None:
+    if remote and provider is not None and asset.synced_to_cloud:
         try:
             provider.delete(asset.object_key)
         except Exception as e:
@@ -128,12 +130,20 @@ def _soft_delete(asset, remote=True):
 def _restore(asset):
     """从回收站恢复：本地文件重新上传图床 + 移回 uploads。"""
     provider = get_active_provider()
-    if provider is None:
-        return False, "未配置生效的图床，无法恢复（请先到「设置 → 图床」启用）"
-
     local_path = _recycle_dir() / asset.local_name
     if not local_path.exists():
         return False, "本地回收文件已缺失，无法恢复"
+
+    # 本地模式（未配置图床）：只把本地文件移回 uploads，保持未同步状态，
+    # 不强制要求图床，避免「未配置图床就永远无法恢复本地图片」。
+    if provider is None:
+        dst_name = _unique_name(_uploads_dir(), asset.local_name)
+        shutil.move(str(local_path), str(_uploads_dir() / dst_name))
+        asset.local_name = dst_name
+        asset.status = ImageAsset.STATUS_ACTIVE
+        asset.deleted_at = None
+        asset.save()
+        return True, None
 
     new_key = provider.build_key(asset.original_name)
     try:
@@ -150,6 +160,31 @@ def _restore(asset):
     asset.provider = provider.name
     asset.status = ImageAsset.STATUS_ACTIVE
     asset.deleted_at = None
+    asset.synced_to_cloud = True
+    asset.save()
+    return True, None
+
+
+def _sync_asset_to_cloud(asset, provider):
+    """
+    把单张本地图片同步（上传）到图床，并更新记录。
+    已同步（synced_to_cloud=True）则幂等跳过；本地文件缺失则报错。
+    复用的就是 _restore 里「本地文件 → 图床」的核心逻辑。
+    """
+    if asset.synced_to_cloud:
+        return True, None
+    local_path = _uploads_dir() / asset.local_name
+    if not local_path.exists():
+        return False, "本地文件缺失，无法同步"
+    new_key = provider.build_key(asset.original_name)
+    try:
+        result = provider.upload(str(local_path), new_key, asset.original_name)
+    except _StorageError as e:
+        return False, f"同步到图床失败：{e}"
+    asset.object_key = result["key"]
+    asset.cdn_url = result["url"]
+    asset.provider = provider.name
+    asset.synced_to_cloud = True
     asset.save()
     return True, None
 
@@ -160,7 +195,6 @@ def _purge(asset):
         local_path.unlink()
     asset.delete()
     return True, None
-
 
 # ---------- 登录 / 登出 ----------
 def login_view(request):
@@ -311,6 +345,9 @@ def index(request):
         .order_by("-n", "name")
     )
     deleted_count = ImageAsset.objects.filter(status=ImageAsset.STATUS_DELETED).count()
+    unsynced_count = ImageAsset.objects.filter(
+        status=ImageAsset.STATUS_ACTIVE, synced_to_cloud=False
+    ).count()
 
     return render(
         request,
@@ -323,6 +360,7 @@ def index(request):
             "active_provider": active_provider,
             "provider_choices": provider_choices,
             "deleted_count": deleted_count,
+            "unsynced_count": unsynced_count,
             "storage_configured": get_active_provider() is not None,
         },
     )
@@ -614,6 +652,70 @@ def delete_remote(request):
         synced = ok
 
     return JsonResponse({"ok": True, "key": key, "synced": synced})
+
+
+# ---------- 手动同步到图床（单张 / 全部） ----------
+@login_required
+@require_POST
+def sync_to_cloud(request):
+    """
+    手动把某张图片同步到图床（仅当已配置生效图床时）。
+    用于「先本地上传、后配置图床」的场景：用户配好图床后，点卡片上的
+    「同步到图床」即可把本地图片推送到云端并拿到访问链接。
+    """
+    asset_id = request.POST.get("id", "").strip()
+    if not asset_id:
+        return JsonResponse({"ok": False, "error": "缺少图片 id"}, status=400)
+    asset = ImageAsset.objects.filter(
+        id=asset_id, status=ImageAsset.STATUS_ACTIVE
+    ).first()
+    if not asset:
+        return JsonResponse({"ok": False, "error": "未找到对应的图片记录"}, status=404)
+
+    provider = get_active_provider()
+    if provider is None:
+        return JsonResponse(
+            {"ok": False, "error": "请先到「设置 → 图床」启用并配置一个图床"},
+            status=400,
+        )
+
+    ok, err = _sync_asset_to_cloud(asset, provider)
+    if not ok:
+        return JsonResponse({"ok": False, "error": err}, status=500)
+    return JsonResponse(
+        {
+            "ok": True,
+            "id": asset.id,
+            "cdn_url": asset.cdn_url,
+            "object_key": asset.object_key,
+            "provider": asset.provider,
+            "provider_display": asset.provider_display(),
+            "synced": True,
+        }
+    )
+
+
+@login_required
+@require_POST
+def sync_all(request):
+    """把全部「未同步到图床」的正常图片批量同步到图床。"""
+    provider = get_active_provider()
+    if provider is None:
+        return JsonResponse(
+            {"ok": False, "error": "请先到「设置 → 图床」启用并配置一个图床"},
+            status=400,
+        )
+    assets = ImageAsset.objects.filter(
+        status=ImageAsset.STATUS_ACTIVE, synced_to_cloud=False
+    )
+    synced, failed = 0, []
+    for a in assets:
+        ok, err = _sync_asset_to_cloud(a, provider)
+        if ok:
+            synced += 1
+        else:
+            failed.append({"id": a.id, "name": a.original_name, "error": err})
+    return JsonResponse({"ok": True, "synced": synced, "failed": failed})
 
 
 # ---------- 标签 ----------

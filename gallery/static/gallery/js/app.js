@@ -23,6 +23,7 @@
   const ICON_TRASH = svg('<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>');
   const ICON_COPY = svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>');
   const ICON_DOWNLOAD = svg('<path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>');
+  const ICON_SYNC = svg('<path d="M12 15V3m0 0L8 7m4-4 4 4"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/>');
 
   /* ---------- 工具 ---------- */
   let toastTimer;
@@ -519,13 +520,14 @@
     card.innerHTML =
       '<div class="card-media">' +
         '<div class="thumb-ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="m21 15-5-5L5 21"/></svg></div>' +
-        (d.thumb_url ? '<img src="' + escapeHtml(d.thumb_url) + '" alt="' + escapeHtml(d.original_name) + '" loading="lazy" onerror="this.closest(\'.card-media\').classList.add(\'no-img\')">' : '') +
+        (d.thumb_url || d.display_url ? '<img src="' + escapeHtml(d.thumb_url || d.display_url) + '" alt="' + escapeHtml(d.original_name) + '" loading="lazy" onerror="this.closest(\'.card-media\').classList.add(\'no-img\')">' : '') +
         '<label class="card-pick" title="选择这张"><input type="checkbox" class="pick-box" value="' + d.id + '"></label>' +
         (prov ? '<span class="provider-badge" title="图床：' + escapeHtml(prov) + '">' + escapeHtml(prov) + '</span>' : '') +
         '<div class="card-hover">' +
           '<button class="btn btn-sm export-btn" type="button" title="导出该图片" aria-label="导出该图片" data-export="' + d.id + '">' + ICON_DOWNLOAD + '</button>' +
           (window.IS_DESKTOP ? '' : '<a class="btn btn-sm" href="' + escapeHtml(d.cdn_url) + '" target="_blank" rel="noopener" title="查看原图" aria-label="查看原图">' + ICON_EYE + '</a>') +
           '<button class="btn btn-sm tag-btn" type="button" title="改标签" aria-label="改标签">' + ICON_TAG + '</button>' +
+          (window.STORAGE_CONFIGURED && !d.synced_to_cloud ? '<button class="btn btn-sm sync-btn" type="button" title="同步到图床" aria-label="同步到图床" data-sync="' + d.id + '">' + ICON_SYNC + '</button>' : '') +
           '<button class="btn btn-sm btn-danger delete-btn" type="button" title="删除" aria-label="删除">' + ICON_TRASH + '</button>' +
         '</div>' +
       '</div>' +
@@ -559,6 +561,7 @@
       const copyKeyBtn = e.target.closest(".copy-key-btn");
       const delBtn = e.target.closest(".delete-btn");
       const tagBtn = e.target.closest(".tag-btn");
+      const syncBtn = e.target.closest(".sync-btn");
       const restoreBtn = e.target.closest(".restore-btn");
       const purgeBtn = e.target.closest(".purge-btn");
       const mediaImg = e.target.closest(".card-media img");
@@ -634,6 +637,40 @@
         const resp = await post("/set_tags", params);
         if (resp.ok) { renderChips(card, val); toast("标签已更新", "success"); }
         else toast(resp.error || "更新失败", "error");
+        return;
+      }
+
+      if (syncBtn) {
+        const card = syncBtn.closest(".card");
+        const id = syncBtn.dataset.sync;
+        const name = card ? card.querySelector(".card-name").textContent : id;
+        const go = await confirmDialog(
+          "同步到图床",
+          "确定把「" + name + "」同步到图床？\n会上传本地文件并生成访问链接。",
+          { confirmText: "同步" }
+        );
+        if (!go) return;
+        syncBtn.disabled = true;
+        syncBtn.title = "同步中…";
+        const resp = await post("/sync_cloud", new URLSearchParams({ id }));
+        if (resp.ok) {
+          toast("已同步到图床：" + (resp.provider_display || ""), "success");
+          if (card) {
+            syncBtn.remove();
+            const badge = card.querySelector(".provider-badge");
+            if (badge && resp.provider_display) badge.textContent = resp.provider_display;
+            const anchor = card.querySelector('a[aria-label="查看原图"]');
+            if (anchor && resp.cdn_url) anchor.href = resp.cdn_url;
+            const img = card.querySelector(".card-media img");
+            if (img && resp.cdn_url) { img.src = resp.cdn_url; img.onerror = null; }
+            card.dataset.cdn = resp.cdn_url || "";
+            card.querySelectorAll(".link-btn").forEach((b) => { b.disabled = !resp.cdn_url; });
+          }
+        } else {
+          toast(resp.error || "同步失败", "error");
+          syncBtn.disabled = false;
+          syncBtn.title = "同步到图床";
+        }
         return;
       }
 
@@ -893,6 +930,33 @@
       const ids = selectedIds();
       if (!ids.length) { toast("请先勾选要导出的图片", "error"); return; }
       openExportChooser({ ids });
+    });
+  }
+
+  const syncAllBtn = document.getElementById("syncAllBtn");
+  if (syncAllBtn) {
+    syncAllBtn.addEventListener("click", async () => {
+      const go = await confirmDialog(
+        "同步全部到图床",
+        "确定把当前所有未同步的图片批量上传到图床？\n（已同步的会自动跳过）",
+        { confirmText: "同步全部" }
+      );
+      if (!go) return;
+      syncAllBtn.disabled = true;
+      syncAllBtn.textContent = "同步中…";
+      const resp = await post("/sync_all", new URLSearchParams());
+      if (resp.ok) {
+        let msg = "已同步 " + resp.synced + " 张到图床";
+        if (resp.failed && resp.failed.length) {
+          msg += "；" + resp.failed.length + " 张失败：" + resp.failed[0].error;
+        }
+        toast(msg, resp.failed && resp.failed.length ? "error" : "success");
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        toast(resp.error || "同步失败", "error");
+        syncAllBtn.disabled = false;
+        syncAllBtn.textContent = "同步全部到图床";
+      }
     });
   }
 

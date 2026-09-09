@@ -50,6 +50,8 @@ def build_payload(asset: ImageAsset) -> dict:
         "provider_display": asset.provider_display(),
         "cdn_url": cdn,
         "thumb_url": asset.thumb_url,
+        "display_url": asset.display_url,
+        "synced_to_cloud": asset.synced_to_cloud,
         "size": asset.size,
         "tags": [t.name for t in asset.tags.all()],
         "uploaded_at": asset.uploaded_at.strftime("%Y-%m-%d %H:%M:%S"),
@@ -63,6 +65,12 @@ def upload_image(*, source, original_name: str, tags: str = "", provider=None) -
     """
     上传一张图片（被 Web 与 CLI 共用）。
 
+    设计要点（满足「未配置图床也能上传」）：
+    - 不论是否配置图床，都会先把文件落盘到本地 media/uploads；
+    - 配置了生效图床 → 继续上传到图床，记录 cdn_url，标记 synced_to_cloud=True；
+    - 未配置图床 → 仅落盘，object_key 用 local/ 前缀保证唯一，标记
+      synced_to_cloud=False，用户后续在「图床设置」配好后可手动同步。
+
     :param source: 本地文件路径（str/Path）或 Django UploadedFile 对象
     :param original_name: 原始文件名（用于命名与展示）
     :param tags: 逗号分隔的标签串
@@ -70,10 +78,9 @@ def upload_image(*, source, original_name: str, tags: str = "", provider=None) -
     :return: build_payload 结构的 dict
     """
     from django.conf import settings
+    from .storage.base import _ts_key
 
     provider = provider or get_active_provider()
-    if provider is None:
-        raise StorageError("未配置生效的图床，请先到「设置 → 图床」中启用一个图床配置")
 
     uploads = settings.MEDIA_ROOT / "uploads"
     uploads.mkdir(parents=True, exist_ok=True)
@@ -94,7 +101,22 @@ def upload_image(*, source, original_name: str, tags: str = "", provider=None) -
         size = local_path.stat().st_size
         mime = ""
 
-    # 2) 上传到图床（时间戳重命名）
+    # 2) 上传到图床（仅当配置了生效图床）
+    if provider is None:
+        # 本地模式：只落盘，不推云端，标记未同步，等待用户后续手动同步
+        asset = ImageAsset.objects.create(
+            original_name=original_name,
+            local_name=local_name,
+            object_key=_ts_key(original_name, prefix="local/"),
+            provider="",
+            cdn_url="",
+            size=size,
+            mime_type=mime,
+            synced_to_cloud=False,
+        )
+        _apply_tags(asset, tags)
+        return build_payload(asset)
+
     key = provider.build_key(original_name)
     try:
         result = provider.upload(str(local_path), key, original_name)
@@ -111,6 +133,7 @@ def upload_image(*, source, original_name: str, tags: str = "", provider=None) -
         cdn_url=result["url"],
         size=size,
         mime_type=mime,
+        synced_to_cloud=True,
     )
     _apply_tags(asset, tags)
     return build_payload(asset)

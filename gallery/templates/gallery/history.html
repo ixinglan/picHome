@@ -19,10 +19,12 @@
       {% for it in items %}
         <div class="hist-row {% if it.is_deleted %}is-del{% endif %}" data-key="{{ it.object_key }}">
           <div class="hist-thumb">
-            {% if it.cdn_url and not it.is_deleted %}
+            {% if it.is_deleted %}
+              <span class="hist-thumb-x">—</span>
+            {% elif it.cdn_url %}
               <img src="{{ it.thumb_url }}" alt="{{ it.original_name }}" loading="lazy">
             {% else %}
-              <span class="hist-thumb-x">—</span>
+              <img src="{% url 'gallery:local_image' it.id %}" alt="{{ it.original_name }}" loading="lazy">
             {% endif %}
           </div>
           <div class="hist-info">
