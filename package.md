@@ -130,6 +130,27 @@ desktop/src-tauri/target/release/bundle/dmg/PicHome_<版本>_<架构>.dmg
 > Release 正文会**按是否配置 `APPLE_SIGNING_IDENTITY` 自动切换**：有证书就写「已签名并通过
 > Apple 公证」，没有就写「未签名，需右键打开」—— 避免文案与产物实际状态不符。
 
+> ⚠️ **改完 workflow 别指望「重跑」**：GitHub 重跑某次运行时会**沿用该次运行所对应 commit 里的
+> workflow 文件**，所以修好 `release.yml` 后重跑旧的失败运行**不会生效**，必须产生一次新运行
+> （而本 workflow 由 tag push 触发 = 要重跑整条构建，约 30 分钟）。
+>
+> 若两个 build 已经全绿、只是最后建 Release 这步挂了，可复用已有产物绕过重建：
+> 新建一个 `workflow_dispatch` 工作流，用 `actions/download-artifact@v4` 指定来源运行，
+> 再 `gh release create`。注意该 job 需要 `permissions: contents: write` + `actions: read`：
+>
+> ```yaml
+> - uses: actions/download-artifact@v4
+>   with:
+>     run-id: <来源运行 ID>
+>     github-token: ${{ secrets.GITHUB_TOKEN }}
+>     pattern: dmg-*
+>     path: artifacts
+> ```
+>
+> 事后可在 macOS runner 上对成品做独立校验：`xcrun stapler validate <dmg>` +
+> `spctl -a -t open --context context:primary-signature -v <dmg>`，预期输出
+> `source=Notarized Developer ID` 与 `accepted`。
+
 ---
 
 ## 4. 关键配置项
