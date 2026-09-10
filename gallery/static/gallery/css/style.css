@@ -58,7 +58,7 @@
 
   --text:         var(--slate-900);
   --text-2:       var(--slate-700);
-  --text-3:       var(--slate-500);   /* 次要文本，对白底 ≈ 5.2:1 */
+  --text-3:       oklch(54% 0.013 250);   /* 次要文本：较原 slate-500 加深，保证「压在背景图上」也读得清 */
   --text-4:       var(--slate-400);   /* 仅用于装饰/禁用 */
 
   --accent:       var(--spruce-600);
@@ -143,8 +143,8 @@
 
   --text:         oklch(95% 0.004 250);
   --text-2:       oklch(86% 0.006 250);
-  --text-3:       oklch(72% 0.009 250);
-  --text-4:       oklch(55% 0.010 250);
+  --text-3:       oklch(76% 0.010 250);
+  --text-4:       oklch(58% 0.010 250);
 
   --accent:       oklch(72% 0.108 196);
   --accent-hover: oklch(80% 0.098 196);
@@ -482,6 +482,15 @@ a { color: inherit; text-decoration: none; }
   flex-direction: column;
   gap: var(--s-4);
   margin-bottom: var(--s-5);
+  /* 毛玻璃底板：工具栏直接压在动态背景图上，加一层稳定的浅色底，
+     避免背景偏亮/花哨时「导出全部」等透明按钮与浅色文字看不清。
+     与顶栏 / 卡片 / 弹窗用同一套毛玻璃语言。 */
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: color-mix(in oklab, var(--surface) 74%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
 }
 .toolbar-row {
   display: flex;
@@ -516,7 +525,7 @@ a { color: inherit; text-decoration: none; }
   transition: border-color var(--dur-fast) var(--ease-out-quart),
               box-shadow var(--dur-fast) var(--ease-out-quart);
 }
-.search input::placeholder { color: var(--text-4); }
+.search input::placeholder { color: var(--text-3); }
 .search input:focus {
   outline: none;
   border-color: var(--accent);
@@ -544,7 +553,7 @@ a { color: inherit; text-decoration: none; }
   font-size: var(--text-2xs);
   text-transform: uppercase;
   letter-spacing: var(--track-wide);
-  color: var(--text-4);
+  color: var(--text-3);
   margin-right: var(--s-1);
 }
 
@@ -579,7 +588,7 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
   background: transparent;
   border-style: dashed;
   border-color: var(--border);
-  color: var(--text-4);
+  color: var(--text-3);
 }
 
 /* ==========================================================================
@@ -1450,16 +1459,51 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
 /* 顶部上传队列：粘贴按钮 */
 .dock-head-actions { display: flex; align-items: center; gap: var(--s-2); }
 
-/* ===== 图床设置页 ===== */
+/* ===== 设置类页头（图床设置 / 上传历史 共用）===== */
 .settings { max-width: 860px; margin: 0 auto; }
 .settings-head {
   display: flex; align-items: flex-end; justify-content: space-between;
   gap: var(--s-4); margin-bottom: var(--s-6);
+  /* 毛玻璃底板：与图库页 .toolbar、卡片、弹窗同一套语言。
+     标题与说明小字原来直接压在动态背景图上，背景偏亮/偏暗时文字会糊掉，
+     这里补一层稳定的浅色底 + 模糊，保证「上传历史 / 按时间倒序…」始终清晰。 */
+  padding: var(--s-5) var(--s-5) var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: color-mix(in oklab, var(--surface) 74%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
 }
-.settings-title { margin: 0 0 var(--s-2); font-size: var(--text-xl); font-weight: 600; }
-.settings-sub { margin: 0; color: var(--text-3); font-size: var(--text-sm); max-width: 60ch; }
+.settings-title {
+  margin: 0 0 var(--s-2);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
+  color: var(--text);
+}
+/* 说明小字：由 --text-3 提升到 --text-2，并给足行高，压在底板上也读得清 */
+.settings-sub {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-base);
+  max-width: 60ch;
+}
 
 .cfg-list { display: flex; flex-direction: column; gap: var(--s-3); margin-bottom: var(--s-8); }
+/* 没有配置时的提示文案：原来是一段裸文字直接压在背景图上，几乎读不到。
+   同页其它元素（页头 / 表单 / 卡片）都有毛玻璃底板，这里补齐。 */
+.cfg-list > .empty-text {
+  margin: 0;
+  max-width: none;
+  padding: var(--s-4) var(--s-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  background: color-mix(in oklab, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
+  color: var(--text-2);
+}
 .cfg-card {
   display: flex; align-items: center; justify-content: space-between; gap: var(--s-4);
   padding: var(--s-4) var(--s-5);
@@ -1504,6 +1548,26 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
 }
 .cfg-form-actions { display: flex; gap: var(--s-3); margin-top: var(--s-5); }
 
+/* ===== 数据迁移（图床设置页）===== */
+.migrate-wrap { margin-top: var(--s-8); }
+.migrate-sub { max-width: 72ch; margin: 0 0 var(--s-5); }
+.migrate-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
+.migrate-file { font-size: var(--text-xs); color: var(--text-3); word-break: break-all; }
+.migrate-result {
+  margin-top: var(--s-5);
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+}
+.migrate-line { margin: 0; color: var(--text-2); }
+.migrate-line b { font-variant-numeric: tabular-nums; }
+.migrate-errors { margin-top: var(--s-3); }
+.migrate-errors summary { cursor: pointer; color: var(--text-2); }
+.migrate-errors ul { margin: var(--s-2) 0 0; padding-left: var(--s-5); color: var(--text-3); }
+.migrate-errors li { margin: 2px 0; word-break: break-all; }
+
 /* ===== 上传历史页 ===== */
 .hist-list { display: flex; flex-direction: column; gap: var(--s-2); }
 .hist-row {
@@ -1516,21 +1580,53 @@ a.chip:hover { border-color: var(--accent-border); color: var(--accent); backgro
   border-radius: var(--r-lg);
   background: var(--surface);
 }
-.hist-row.is-del { opacity: 0.7; }
+/* 已删除行：原来 `opacity: .7` 会把整行的文件名、小字、「已删除」一起冲淡 → 更看不清。
+   改为「很淡的危险色底 + 危险色描边」表达状态，只弱化缩略图，文字保持满对比度。 */
+.hist-row.is-del {
+  background: color-mix(in oklab, var(--danger) 7%, var(--surface));
+  border-color: color-mix(in oklab, var(--danger) 26%, var(--border));
+}
+.hist-row.is-del .hist-thumb { opacity: 0.55; }
+.hist-row.is-del .hist-name { color: var(--text-3); }
 .hist-thumb {
   width: 56px; height: 56px; border-radius: var(--r-sm);
   overflow: hidden; background: var(--surface-2); display: grid; place-items: center;
 }
 .hist-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.hist-thumb-x { color: var(--text-4); font-size: var(--text-lg); }
+.hist-thumb-x { color: var(--text-3); font-size: var(--text-lg); }
 .hist-info { min-width: 0; }
 .hist-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 副信息小字：11px(--text-2xs) + --text-3 太小太淡；提到 12px(--text-xs) + --text-2 */
 .hist-meta {
   display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap;
-  font-size: var(--text-2xs); color: var(--text-3);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
 }
-.hist-meta .sep { color: var(--text-4); }
-.hist-del-tag { color: var(--danger, #e5484d); font-weight: 600; }
+.hist-meta .sep { color: var(--text-3); }
+/* 图床徽标在卡片里是绝对定位（贴缩略图右上角），在历史行内要回到文档流，
+   否则会跑到最近定位祖先（.container）的右上角，压住页头按钮。 */
+.hist-meta .provider-badge {
+  position: static;
+  z-index: auto;
+  padding: 0 7px;
+  line-height: 1.6;
+}
+/* 「已删除」：与回收站卡片 .deleted-tag 统一成药丸徽标，小字也有形可依 */
+.hist-del-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--r-full);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--danger);
+  /* 与回收站卡片 .deleted-tag 同一套配方，保证「已删除」全站观感一致 */
+  background: color-mix(in oklab, var(--danger) 14%, var(--surface));
+  border: 1px solid color-mix(in oklab, var(--danger) 30%, transparent);
+}
 .hist-links { display: flex; gap: var(--s-2); flex-shrink: 0; }
 
 /* ===== 登录页：卡片上移 + 禁止上下滚动 ===== */

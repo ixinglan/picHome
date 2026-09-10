@@ -4,69 +4,85 @@
 {% block page_id %}storage{% endblock %}
 
 {% block content %}
-  <div class="settings">
-    <header class="settings-head">
-      <div>
-        <h1 class="settings-title">图床设置</h1>
-        <p class="settings-sub">配置你要用的图床。同一时间只能启用一个；缺必填项时无法启用，按钮会禁用并提示。</p>
+  <div class="settings" data-page-node-id="pShwUY9dCxh4K2gM1K7jjJ">
+    <header class="settings-head" data-page-node-id="EO5TcRFIN1rvnEECSItTCU">
+      <div data-page-node-id="pMNODrzfjgX5C3SSEpJo6v">
+        <h1 class="settings-title" data-page-node-id="6vS189qa3WzZXDgedqAtTk">图床设置</h1>
+        <p class="settings-sub" data-page-node-id="LoXL6DVQDH24mJWAbYea9X">配置你要用的图床。同一时间只能启用一个；缺必填项时无法启用，按钮会禁用并提示。</p>
       </div>
     </header>
 
     {# 已保存的配置列表 #}
-    <section class="cfg-list">
+    <section class="cfg-list" data-page-node-id="y9V4CIgKJSSE4IdDBx28cX">
       {% for c in configs %}
-        <div class="cfg-card {% if c.is_active %}is-active{% endif %}">
-          <div class="cfg-main">
-            <span class="cfg-badge">{{ c.provider_display }}</span>
-            <div class="cfg-name">{{ c.display_name }}</div>
-            {% if c.is_active %}<span class="cfg-on">● 已启用</span>{% endif %}
+        <div class="cfg-card {% if c.is_active %}is-active{% endif %}" data-page-node-id="oBgTAO38GSpP5CMOHOHqvr">
+          <div class="cfg-main" data-page-node-id="FErn58RLXO1Ng70U88BTwa">
+            <span class="cfg-badge" data-page-node-id="rbtmRrafRgvKqSaKWJKKUn">{{ c.provider_display }}</span>
+            <div class="cfg-name" data-page-node-id="UbyoF5niouDvpmVmlFbBgQ">{{ c.display_name }}</div>
+            {% if c.is_active %}<span class="cfg-on" data-page-node-id="dOasqfFtxM3gp6Op0mGHf7">● 已启用</span>{% endif %}
           </div>
-          <div class="cfg-actions">
-            <a class="btn btn-sm" href="?edit={{ c.id }}">编辑</a>
+          <div class="cfg-actions" data-page-node-id="pqsmqZGDFrwSb75eC5HzNF">
+            <a class="btn btn-sm" href="?edit={{ c.id }}" data-page-node-id="LAjwZplCfCv055K5FUFmlg">编辑</a>
             {% if not c.is_active %}
-              <button class="btn btn-sm btn-primary" data-activate="{{ c.id }}">启用</button>
+              <button class="btn btn-sm btn-primary" data-activate="{{ c.id }}" data-page-node-id="Kx6XCFApVeSCoCE32z9TKF">启用</button>
             {% endif %}
-            <button class="btn btn-sm btn-danger" data-delete="{{ c.id }}">删除</button>
+            <button class="btn btn-sm btn-danger" data-delete="{{ c.id }}" data-page-node-id="Jn3P7k7sE3y6cILyGsmAI3">删除</button>
           </div>
         </div>
       {% empty %}
-        <p class="empty-text">还没有任何图床配置。在下面新建一个并启用后即可上传。</p>
+        <p class="empty-text" data-page-node-id="ANVQ7lwt3Hpks4o8iHpcbk">还没有任何图床配置。在下面新建一个并启用后即可上传。</p>
       {% endfor %}
     </section>
 
     {# 新建 / 编辑表单 #}
-    <section class="cfg-form-wrap">
-      <h2 class="cfg-form-title" id="formTitle">新建图床配置</h2>
-      <form id="storageForm" class="cfg-form">
-        <input type="hidden" name="id" id="cfgId">
-        <label class="field">
-          <span class="field-label">图床类型</span>
-          <select name="provider" id="providerSelect">
+    <section class="cfg-form-wrap" data-page-node-id="PWp7uUCv7R1ZxOHFLHF5wW">
+      <h2 class="cfg-form-title" id="formTitle" data-page-node-id="EJ8phHwyjfV1REla33TgRN">新建图床配置</h2>
+      <form id="storageForm" class="cfg-form" data-page-node-id="QF56jgbviPeh4fuQAsORTg">
+        <input type="hidden" name="id" id="cfgId" data-page-node-id="mlWq0waGZPIJGlRSvfCANU">
+        <label class="field" data-page-node-id="VWzPqT3X9HQpASOzOgfHF1">
+          <span class="field-label" data-page-node-id="MhyZHrE5LDRwm5DsslBEEn">图床类型</span>
+          <select name="provider" id="providerSelect" data-page-node-id="a0XO9LUCxFiPRTBXLU5xu7">
             {% for s in specs %}
-              <option value="{{ s.name }}">{{ s.display_name }}</option>
+              <option value="{{ s.name }}" data-page-node-id="FQfC0IN1DpwkbgpS4yaULb">{{ s.display_name }}</option>
             {% endfor %}
           </select>
         </label>
 
-        <label class="field">
-          <span class="field-label">配置名称</span>
-          <input type="text" name="display_name" id="displayName" placeholder="例如：我的七牛云">
+        <label class="field" data-page-node-id="v24Nw6EZ1jsAdFBp7pYwgS">
+          <span class="field-label" data-page-node-id="vHVF74yfOz0zklveP5Ovti">配置名称</span>
+          <input type="text" name="display_name" id="displayName" placeholder="例如：我的七牛云" data-page-node-id="0aNSfIrwyN345ZupALUy31">
         </label>
 
         {# 字段模板由 JS 按所选图床的 specs 自动渲染 #}
-        <div id="fieldsBox" class="cfg-fields"></div>
+        <div id="fieldsBox" class="cfg-fields" data-page-node-id="Rpv0jZp7hAPsMEyW9xBlEF"></div>
 
-        <label class="remember">
-          <input type="checkbox" name="is_active" id="isActive">
-          <span>保存后立即启用此图床</span>
+        <label class="remember" data-page-node-id="h65BJxFOOrhHOgYgFYsyjG">
+          <input type="checkbox" name="is_active" id="isActive" data-page-node-id="7glNZP2SJLcLiFCENJIUBN">
+          <span data-page-node-id="pdPF50lidyCsgHJ2HiDCRC">保存后立即启用此图床</span>
         </label>
 
-        <div class="cfg-form-actions">
-          <button class="btn btn-primary" type="submit" id="saveBtn">保存</button>
-          <button class="btn btn-ghost" type="button" id="resetBtn">重置</button>
+        <div class="cfg-form-actions" data-page-node-id="GPX6hu4uujBUXVGCCCWbYm">
+          <button class="btn btn-primary" type="submit" id="saveBtn" data-page-node-id="kkHdpSSylAvZXzHoD8dXLj">保存</button>
+          <button class="btn btn-ghost" type="button" id="resetBtn" data-page-node-id="EeqP2pfs7n8ib4seTvdBGv">重置</button>
         </div>
-        <p class="form-error" id="formError" hidden></p>
+        <p class="form-error" id="formError" hidden data-page-node-id="yuFvt5BTGHZC9XkBZHUgWe"></p>
       </form>
+    </section>
+
+    {# 数据迁移：在 Web 端与桌面端之间导入 / 导出图库数据 #}
+    <section class="cfg-form-wrap migrate-wrap" data-page-node-id="aRw0qmsNjdFfYohfy7MrPX">
+      <h2 class="cfg-form-title" data-page-node-id="yMmoSWVailxLmgbQ7aPqDu">数据迁移</h2>
+      <p class="settings-sub migrate-sub" data-page-node-id="NkLOI88DDqsxKc1tOFldDN">
+        在 Web 端与桌面端之间迁移图库数据：导出为 JSON 清单（云端图片带链接，仅本地存储的图片
+        会内嵌文件数据），在另一端导入即可。已存在的条目会自动跳过，不会重复。
+      </p>
+      <div class="migrate-actions" data-page-node-id="gkQ3JH9jNMYHZldDZyvtsh">
+        <button class="btn btn-primary" type="button" id="exportMigrateBtn" data-page-node-id="fDGBW0va1EaD5XTA3fr9iL">导出迁移数据 (JSON)</button>
+        <label class="btn" for="importFile" id="importPickBtn" role="button" tabindex="0" data-page-node-id="x7JFMwLUdK09BGovbz1KwH">选择 JSON 文件导入</label>
+        <input type="file" id="importFile" accept=".json,application/json" hidden data-page-node-id="c00RQBdBfh3892sWGpJqJJ">
+        <span class="migrate-file" id="importFileName" data-page-node-id="aptRiLJrpWAgcfyC83L1aY"></span>
+      </div>
+      <div class="migrate-result" id="importResult" hidden data-page-node-id="JeXIpcQ6skQzLY1CmGHNUO"></div>
     </section>
   </div>
 

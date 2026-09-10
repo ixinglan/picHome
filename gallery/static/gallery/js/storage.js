@@ -185,7 +185,7 @@
      会让「if (!confirm(...)) return」永远直接 return、删除请求发不出去（Web 浏览器
      confirm 正常，所以只有桌面 App 复现）。本页未加载 app.js（其 confirmDialog 在
      app.js 的 IIFE 内、不可跨文件访问），故在此自行驱动全局 #modal。 */
-  function confirmDialog(title, message, confirmText) {
+  function confirmDialog(title, message, confirmText, variant) {
     const modal = document.getElementById("modal");
     const modalTitle = document.getElementById("modalTitle");
     const modalBody = document.getElementById("modalBody");
@@ -198,7 +198,8 @@
     modalBody.textContent = message || "";
     if (modalInputWrap) modalInputWrap.hidden = true;
     modalOk.textContent = confirmText || "确定";
-    modalOk.className = "btn btn-danger-solid";
+    // 默认危险色（删除类）；非破坏性操作传 "primary" 用主色，避免误导
+    modalOk.className = variant === "primary" ? "btn btn-primary" : "btn btn-danger-solid";
     modal.hidden = false;
 
     return new Promise((resolve) => {
@@ -245,6 +246,87 @@
       else toast(resp.error || "删除失败", "error");
     });
   });
+
+  /* ====================== 数据迁移：导出 / 导入 ====================== */
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+    ));
+  }
+
+  const exportMigrateBtn = document.getElementById("exportMigrateBtn");
+  const importFile = document.getElementById("importFile");
+  const importFileName = document.getElementById("importFileName");
+  const importResult = document.getElementById("importResult");
+
+  if (exportMigrateBtn) {
+    exportMigrateBtn.addEventListener("click", () => {
+      // embed=1：把本地未上云图片的数据一并内嵌进 JSON，保证迁移完整
+      window.location.href = "/export/?all=1&fmt=json&embed=1";
+    });
+  }
+
+  function renderImportResult(resp) {
+    if (!importResult) return;
+    let html =
+      '<p class="migrate-line">导入完成：总计 ' + resp.total +
+      " 条，成功 <b>" + resp.imported + "</b>、跳过 <b>" + resp.skipped +
+      "</b>、失败 <b>" + resp.failed + "</b></p>";
+    if (resp.errors && resp.errors.length) {
+      html +=
+        '<details class="migrate-errors"><summary>失败详情（' + resp.errors.length +
+        "）</summary><ul>" +
+        resp.errors.map((e) => "<li>" + esc(e) + "</li>").join("") +
+        "</ul></details>";
+    }
+    importResult.innerHTML = html;
+    importResult.hidden = false;
+  }
+
+  if (importFile) {
+    importFile.addEventListener("change", async () => {
+      const file = importFile.files && importFile.files[0];
+      if (!file) return;
+      if (importFileName) importFileName.textContent = file.name;
+      const go = await confirmDialog(
+        "导入图库数据",
+        "将从「" + file.name + "」导入图库记录。\n已存在的条目会自动跳过，不会覆盖现有数据。",
+        "开始导入",
+        "primary"
+      );
+      if (!go) {
+        importFile.value = "";
+        if (importFileName) importFileName.textContent = "";
+        return;
+      }
+      if (importResult) {
+        importResult.hidden = true;
+        importResult.innerHTML = "";
+      }
+      const fd = new FormData();
+      fd.append("file", file);
+      try {
+        const resp = await fetch("/import/", {
+          method: "POST",
+          headers: { "X-CSRFToken": csrftoken },
+          body: fd,
+        }).then((r) => r.json());
+        if (!resp.ok) {
+          toast(resp.error || "导入失败", "error");
+          return;
+        }
+        renderImportResult(resp);
+        toast(
+          "导入完成：成功 " + resp.imported + "、跳过 " + resp.skipped + "、失败 " + resp.failed,
+          "success"
+        );
+      } catch (e) {
+        toast("导入失败：" + (e.message || e), "error");
+      } finally {
+        importFile.value = "";
+      }
+    });
+  }
 
   /* 初始化：有编辑态走 applyEdit，否则（新建）也要渲染默认图床的字段 */
   if (EDIT) applyEdit();

@@ -23,6 +23,7 @@
 统一对外 API（供 CLI / AI Agent 调用，返回 JSON）：
 - POST /api/v1/upload     上传单张，返回 {ok, markdown, cdn_url, html, ...}
 """
+import base64
 import json
 import logging
 import mimetypes
@@ -34,6 +35,7 @@ import requests
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -789,10 +791,14 @@ def export_assets(request):
       - 指定：/export/?ids=1,2,3
       - 格式：fmt=json（默认，导出链接与元信息清单）
               fmt=images（逐张回源图床拉取原图，打包成 ZIP 下载）
+      - 迁移：fmt=json 时加 embed=1，会把「仅本地存储（未上云）」图片的
+              二进制以 base64 内嵌进清单，供另一端导入时还原成真实文件，
+              实现 Web ↔ 桌面端的数据完整迁移。
     """
     ids_raw = (request.GET.get("ids") or "").strip()
     export_all = request.GET.get("all") == "1"
     fmt = (request.GET.get("fmt") or "json").lower()
+    embed_local = request.GET.get("embed") == "1"
 
     qs = ImageAsset.objects.filter(status=ImageAsset.STATUS_ACTIVE)
     if not export_all and ids_raw:
@@ -802,27 +808,47 @@ def export_assets(request):
     if fmt == "images":
         return _export_images_zip(qs)
 
-    # 默认：JSON 清单（链接 + 元信息，便于迁移到新环境或做备份清单）
+    # 默认：JSON 清单（链接 + 元信息，便于迁移到新环境或做备份清单）。
+    # embed_local=True（迁移模式）：把「仅本地存储、无 cdn_url」的图片二进制
+    # 以 base64 内嵌，导入端可直接还原成真实文件；云端图片仍只带链接，避免臃肿。
     items = []
+    embedded = 0
     for a in qs.prefetch_related("tags"):
         cdn = a.cdn_url or ""
-        items.append({
+        item = {
             "id": a.id,
             "original_name": a.original_name,
+            "local_name": a.local_name,
             "object_key": a.object_key,
             "provider": a.provider,
             "provider_display": a.provider_display(),
             "cdn_url": cdn,
             "size": a.size,
+            "mime_type": a.mime_type,
+            "synced_to_cloud": a.synced_to_cloud,
+            "status": a.status,
             "uploaded_at": a.uploaded_at.isoformat() if a.uploaded_at else "",
             "tags": [t.name for t in a.tags.all()],
             "markdown": f'![{a.original_name}]({cdn} "{a.original_name}")',
             "html": f'<img src="{cdn}"/>',
-        })
+        }
+        if embed_local and not cdn and a.local_name:
+            p = _uploads_dir() / a.local_name
+            if p.exists():
+                item["data"] = base64.b64encode(p.read_bytes()).decode("ascii")
+                item["data_mime"] = (
+                    a.mime_type
+                    or mimetypes.guess_type(a.local_name)[0]
+                    or "application/octet-stream"
+                )
+                embedded += 1
+        items.append(item)
 
     payload = {
         "exported_at": timezone.now().isoformat(),
         "count": len(items),
+        "embed_local": embed_local,
+        "embedded_count": embedded,
         "items": items,
     }
     resp = JsonResponse(payload, json_dumps_params={"ensure_ascii": False, "indent": 2})
@@ -830,6 +856,171 @@ def export_assets(request):
     fname = "pichome-export-%s.json" % timezone.now().strftime("%Y%m%d-%H%M%S")
     resp["Content-Disposition"] = 'attachment; filename="%s"' % fname
     return resp
+
+
+# ===== 导入：把导出的 JSON 清单导回图库，实现 Web ↔ 桌面端数据迁移 =====
+def _parse_export_dt(value):
+    """解析导出清单里的 ISO 时间串；失败返回 None（不阻断导入）。"""
+    from datetime import datetime
+
+    if not value:
+        return None
+    s = str(value).strip().replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(s)
+    except (TypeError, ValueError):
+        return None
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, timezone.get_current_timezone())
+    return dt
+
+
+def _import_one(item):
+    """导入单条记录：返回 'imported' 或 'skipped'；异常抛出由调用方计入 failed。
+
+    去重规则（幂等）：object_key 命中，或 (原始文件名 + 大小) 命中 → 视为已存在，跳过。
+    图片类型：
+      - 有 cdn_url（云端图床）→ 直接建记录，展示走 cdn_url，无需本地文件；
+      - 无 cdn_url（本地存储）→ 若清单内嵌 data(base64) 则还原成本地文件，
+        否则记录照建但本地文件缺失（前端显示占位）。
+    """
+    from .storage.base import _ts_key
+
+    object_key = str(item.get("object_key") or "").strip()
+    original_name = str(item.get("original_name") or "").strip() or "未命名"
+    try:
+        size = int(item.get("size") or 0)
+    except (TypeError, ValueError):
+        size = 0
+    cdn_url = str(item.get("cdn_url") or "").strip()
+    provider = str(item.get("provider") or "").strip()
+    mime_type = str(item.get("mime_type") or "").strip()
+    data_b64 = item.get("data") or ""
+
+    # ---- 去重（进入事务前先快速判重）----
+    if object_key and ImageAsset.objects.filter(object_key=object_key).exists():
+        return "skipped"
+    if ImageAsset.objects.filter(original_name=original_name, size=size).exists():
+        return "skipped"
+
+    with transaction.atomic():
+        local_name = ""
+        if cdn_url:
+            # 云端图床图片：只需链接即可展示
+            if not object_key:
+                object_key = _ts_key(original_name, prefix="import/")
+            synced = True
+        else:
+            # 本地存储图片：尽量用内嵌 base64 还原真实文件
+            if not object_key:
+                object_key = _ts_key(original_name, prefix="local/")
+            local_name = _unique_name(_uploads_dir(), original_name)
+            if data_b64:
+                try:
+                    blob = base64.b64decode(data_b64)
+                except Exception as e:
+                    raise ValueError(f"图片数据解码失败：{e}")
+                (_uploads_dir() / local_name).write_bytes(blob)
+                if not size:
+                    size = len(blob)
+                if not mime_type:
+                    mime_type = (
+                        mimetypes.guess_type(original_name)[0]
+                        or "application/octet-stream"
+                    )
+            synced = False
+
+        # 事务内再判一次唯一键，避免极端并发冲突
+        if ImageAsset.objects.filter(object_key=object_key).exists():
+            return "skipped"
+
+        asset = ImageAsset.objects.create(
+            original_name=original_name,
+            local_name=local_name,
+            object_key=object_key,
+            provider=provider,
+            cdn_url=cdn_url,
+            size=size,
+            mime_type=mime_type,
+            synced_to_cloud=synced,
+        )
+
+        names = [str(n).strip() for n in (item.get("tags") or []) if str(n).strip()]
+        if names:
+            tag_objs = []
+            for n in names:
+                tag, _created = Tag.objects.get_or_create(name=n)
+                tag_objs.append(tag)
+            asset.tags.set(tag_objs)
+
+        # uploaded_at 为 auto_now_add，创建后需用 queryset.update 覆盖回原始时间
+        dt = _parse_export_dt(item.get("uploaded_at"))
+        if dt:
+            ImageAsset.objects.filter(pk=asset.pk).update(uploaded_at=dt)
+
+    return "imported"
+
+
+@login_required
+@require_POST
+def import_assets(request):
+    """从导出的 JSON 清单导入图库记录（Web ↔ 桌面端数据迁移）。
+
+    接收：multipart 文件字段 file，或表单字段 json（直接粘贴文本）。
+    幂等：object_key 或 (原名 + 大小) 已存在 → 跳过并继续后面的条目。
+    容错：单条失败只计入 failed，不中断其余条目。
+    返回：{ok, total, imported, skipped, failed, errors[]}
+    """
+    f = request.FILES.get("file")
+    if f is not None:
+        raw = f.read()
+    else:
+        raw = (request.POST.get("json") or "").encode("utf-8")
+
+    if not raw:
+        return JsonResponse({"ok": False, "error": "未收到导入内容"}, status=400)
+    if len(raw) > 512 * 1024 * 1024:
+        return JsonResponse({"ok": False, "error": "文件过大（上限 512MB）"}, status=400)
+
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": f"JSON 解析失败：{e}"}, status=400)
+
+    items = payload.get("items") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        return JsonResponse(
+            {"ok": False, "error": "JSON 结构不正确：缺少 items 数组"}, status=400
+        )
+
+    imported = skipped = failed = 0
+    errors = []
+    for idx, it in enumerate(items, 1):
+        if not isinstance(it, dict):
+            failed += 1
+            if len(errors) < 50:
+                errors.append(f"#{idx}: 条目不是对象，已跳过")
+            continue
+        try:
+            if _import_one(it) == "skipped":
+                skipped += 1
+            else:
+                imported += 1
+        except Exception as e:  # 单条失败不影响其它条目
+            failed += 1
+            if len(errors) < 50:
+                errors.append(f"#{idx} {it.get('original_name') or ''}: {e}")
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "total": len(items),
+            "imported": imported,
+            "skipped": skipped,
+            "failed": failed,
+            "errors": errors,
+        }
+    )
 
 
 def _export_images_zip(qs):
