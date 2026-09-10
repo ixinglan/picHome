@@ -70,16 +70,11 @@ jobs:
           rm -f /tmp/cert.p12
           echo "[ci] keychain 就绪：$KEYCHAIN"
 
-      # 冻结后端：生成 desktop/src-tauri/bin/pichome-server（Tauri sidecar，按当前架构原生编译）
-      # 配置了 APPLE_SIGNING_IDENTITY 时，PyInstaller 在冻结阶段就递归签名整个 sidecar
-      # （主 EXE 带 Python entitlements、_internal 全部签好），为后续 tauri notarize 铺路。
-      # 注意：之前的失败根因是「递归 codesign 放在 tauri-action 之后」——而 Tauri 的
-      # notarize 在 tauri build 内部就跑完了，那时 sidecar 还裸着，必然 invalid。
-      - name: Freeze backend -> src-tauri/bin/pichome-server
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: bash desktop/build_backend.sh
-
+      # 说明：sidecar 冻结（PyInstaller）已改由 tauri.conf.json 的 beforeBuildCommand 自动触发，
+      # 本地 `npm run tauri build` 与 CI 的 tauri-action 都会在打包前先执行 freeze（避免本地
+      # build 复用旧 sidecar）。证书 keychain 已在上一步导入，beforeBuildCommand 冻结时会
+      # 继承 tauri-action 步骤的 env（含 APPLE_SIGNING_IDENTITY），PyInstaller 可直接递归签名。
+      # 因此这里不再单独跑 Freeze backend 步骤，避免 freeze 两次。
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:

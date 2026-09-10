@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "",
     "devUrl": "http://127.0.0.1:14567",
-    "beforeBuildCommand": "",
+    "beforeBuildCommand": "bash build_backend.sh",
     "frontendDist": "../dist"
   },
   "app": {

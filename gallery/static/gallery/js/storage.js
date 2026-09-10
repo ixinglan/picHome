@@ -180,6 +180,43 @@
     toast(resp.error || "保存失败", "error");
   });
 
+  /* ---------- 确认弹窗（复用 base.html 的通用 #modal） ----------
+     不能用 window.confirm()：macOS 的 Tauri/WKWebView 里它静默返回 false 且不弹窗，
+     会让「if (!confirm(...)) return」永远直接 return、删除请求发不出去（Web 浏览器
+     confirm 正常，所以只有桌面 App 复现）。本页未加载 app.js（其 confirmDialog 在
+     app.js 的 IIFE 内、不可跨文件访问），故在此自行驱动全局 #modal。 */
+  function confirmDialog(title, message, confirmText) {
+    const modal = document.getElementById("modal");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalBody = document.getElementById("modalBody");
+    const modalInputWrap = document.getElementById("modalInputWrap");
+    const modalOk = document.getElementById("modalOk");
+    const modalCancel = document.getElementById("modalCancel");
+    const modalMask = document.getElementById("modalMask");
+
+    modalTitle.textContent = title || "确认操作";
+    modalBody.textContent = message || "";
+    if (modalInputWrap) modalInputWrap.hidden = true;
+    modalOk.textContent = confirmText || "确定";
+    modalOk.className = "btn btn-danger-solid";
+    modal.hidden = false;
+
+    return new Promise((resolve) => {
+      const onOk = () => done(true);
+      const onCancel = () => done(false);
+      function done(v) {
+        modal.hidden = true;
+        modalOk.removeEventListener("click", onOk);
+        modalCancel.removeEventListener("click", onCancel);
+        modalMask.removeEventListener("click", onCancel);
+        resolve(v);
+      }
+      modalOk.addEventListener("click", onOk);
+      modalCancel.addEventListener("click", onCancel);
+      modalMask.addEventListener("click", onCancel);
+    });
+  }
+
   /* 列表里的「启用 / 删除」 */
   document.querySelectorAll("[data-activate]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -196,8 +233,9 @@
 
   document.querySelectorAll("[data-delete]").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      if (!confirm("确定删除该图床配置？")) return;
       const id = btn.getAttribute("data-delete");
+      const go = await confirmDialog("删除图床配置", "确定删除该图床配置？此操作不可撤销。", "删除");
+      if (!go) return;
       const resp = await fetch("/settings/storage/", {
         method: "POST",
         headers: { "X-CSRFToken": csrftoken, "Content-Type": "application/x-www-form-urlencoded" },
