@@ -77,3 +77,35 @@ jobs:
               --notes-file /tmp/notes.md
             echo "[release] ✅ draft Release 已创建（到 Releases 页面确认后手动 Publish）"
           fi
+
+  verify:
+    needs: publish
+    runs-on: macos-latest
+    steps:
+      - name: Download artifacts from source run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: dmg-*
+          path: artifacts
+
+      - name: Verify signature / notarization / Gatekeeper
+        run: |
+          set -uo pipefail
+          found=0
+          while IFS= read -r f; do
+            found=1
+            echo "=========== $f ==========="
+            echo "--- codesign -dv ---"
+            codesign -dv --verbose=2 "$f" 2>&1 | grep -E "^(Identifier|Format|TeamIdentifier|Timestamp|Authority)" | sed 's/^/  /' || true
+            echo "--- stapler validate ---"
+            if xcrun stapler validate "$f"; then echo "  RESULT: staple OK"; else echo "  RESULT: staple FAIL"; fi
+            echo "--- spctl (Gatekeeper) ---"
+            if spctl -a -t open --context context:primary-signature -vvv "$f" 2>&1 | sed 's/^/  /'; then
+              echo "  RESULT: Gatekeeper OK"
+            else
+              echo "  RESULT: Gatekeeper FAIL"
+            fi
+          done < <(find artifacts -type f -name '*.dmg' | sort)
+          if [ "$found" = "0" ]; then echo "::error::没有找到 dmg"; exit 1; fi
