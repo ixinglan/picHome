@@ -22,9 +22,9 @@ jobs:
           - os: macos-latest     # Apple Silicon (arm64)
             arch: aarch64
             label: apple-silicon
-          - os: macos-13         # Intel x64（GitHub 唯一仍提供 Intel 的 runner）
-            arch: x64
-            label: intel
+          - os: macos-15-intel   # Intel x64。注意：macos-13 已于 2025-12-04 被 GitHub
+            arch: x64            # 完全退役（actions/runner-images#13046），pin 它会导致
+            label: intel         # job 起不来；macos-15-intel 是官方最后一个 x86_64 镜像。
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -45,7 +45,7 @@ jobs:
 
       # 导入 Apple 证书到临时 keychain（CI 专用）。这一步必须在「冻结后端」之前，
       # 因为 PyInstaller 要在冻结阶段用证书递归签名 sidecar；也必须保持到 tauri-action
-      # 步骤（Tauri 自动 codesign + notarize 时仍需从 keychain 取证书）。
+      # 步骤（Tauri 自动 codesign 时仍需从 keychain 取证书）。
       # 未配置 APPLE_SIGNING_IDENTITY 时整段跳过（仅出未签名 app）。
       - name: Setup macOS keychain (import Apple cert)
         env:
@@ -103,6 +103,12 @@ jobs:
       # 注意：不要把 dmg 交给 Tauri 内置的 create-dmg —— 它最后会用 osascript
       # 调 Finder 做窗口美化，在无图形会话的 CI runner 上会卡死/报错，导致整个
       # `tauri build` 以退出码 1 失败。dmg 改由下面「Package dmg via hdiutil」手动生成。
+      #
+      # 公证策略（重要）：这里只做「签名」，不传 APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID，
+      # 让 Tauri 自动跳过内置公证（日志会打印 "skipping app notarization..."）。
+      # 原因：Tauri 的内置公证跑在 `tauri build` 的最末一步，报错时已来不及补签嵌套的
+      # Python.framework。我们改为在 build 之后由 desktop/sign_app_bundle.sh + notarize.sh
+      # 自己接管「深度签名 → 公证 → 装订」，才能把失败点提前、并拿到可定位的报错。
       - name: Build (tauri-action)
         uses: tauri-apps/tauri-action@v0
         env:
@@ -113,33 +119,83 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: desktop
           args: '--bundles app'
           includeUpdaterJson: false
 
+      # 对最终 .app 做「由内到外」深度重签：framework 按 bundle 形态签（根治公证报
+      # "The signature of the binary is invalid."），其余 Mach-O 逐个签，最后全量
+      # codesign --verify --strict 收口 —— 把问题从「公证阶段」提前到「构建阶段」。
+      - name: Deep-sign app bundle (nested frameworks)
+        working-directory: desktop
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: bash sign_app_bundle.sh "src-tauri/target/release/bundle/macos/PicHome.app"
+
+      # 自己公证 + 装订 .app（Tauri 内置公证已在上面被显式跳过）。
+      # 失败时脚本会自动跑 `notarytool log <id>`，把每个出问题的文件路径与原因打出来。
+      - name: Notarize & staple app
+        working-directory: desktop
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash notarize.sh "src-tauri/target/release/bundle/macos/PicHome.app"
+
       # 手动用 hdiutil 生成 dmg（完全 headless，不依赖 Finder / AppleScript）。
       # 先挂载临时可读写镜像并加入「应用程序」快捷方式，再压缩为最终 dmg。
+      # 注意：不要写死 -size —— CI 的 sidecar 内嵌完整的 Python.framework（含 stdlib），
+      # 体积远大于本地构建，写死尺寸会导致 "no space left"；交给 hdiutil 自动计算。
       - name: Package dmg via hdiutil
         working-directory: desktop/src-tauri/target/release/bundle
         run: |
+          set -euo pipefail
           APP="macos/PicHome.app"
-          VER="${{ github.ref_name }}"   # 例如 v0.1.0
-          VER="${VER#v}"                  # 去掉前缀 v -> 0.1.0
+          VER="${{ github.ref_name }}"   # 例如 v1.0.0
+          VER="${VER#v}"                  # 去掉前缀 v -> 1.0.0
           ARCH="${{ matrix.arch }}"       # aarch64 / x64
           DMG="dmg/PicHome_${VER}_${ARCH}.dmg"
+          RW="$RUNNER_TEMP/rw.${ARCH}.dmg"
+
           mkdir -p dmg
-          RW="dmg/rw.${ARCH}.dmg"
-          hdiutil create -volname "PicHome" -srcfolder "$APP" -format UDRW -size 400m "$RW"
-          DEV=$(hdiutil attach -readwrite -noverify -noautoopen -nobrowse "$RW" | grep '^/dev/' | sed 1q | awk '{print $1}')
+          rm -f "$DMG" "$RW"
+          echo "[dmg] 源 bundle 体积：$(du -sh "$APP" | cut -f1)"
+
+          hdiutil create -volname "PicHome" -srcfolder "$APP" -format UDRW "$RW"
+
+          # ⚠️ 不要写成 `hdiutil attach ... | grep ... | sed 1q | ...`：
+          #    在 `set -o pipefail` 下，`sed 1q`（或 head -1）读一行就退出，会让
+          #    上游命令收到 SIGPIPE（141），整条管道被判为失败。改为先落盘再解析。
+          ATTACH_LOG="$RUNNER_TEMP/dmg-attach.log"
+          if ! hdiutil attach -readwrite -noverify -noautoopen -nobrowse "$RW" > "$ATTACH_LOG" 2>&1; then
+            cat "$ATTACH_LOG"; echo "::error::dmg 临时镜像挂载失败"; exit 1
+          fi
+          cat "$ATTACH_LOG"
+          DEV="$(awk '/^\/dev\//{print $1; exit}' "$ATTACH_LOG")"
+          if [ -z "$DEV" ] || [ ! -d "/Volumes/PicHome" ]; then
+            echo "::error::未能解析挂载设备或卷未就绪（DEV='${DEV}'）"; exit 1
+          fi
           ln -s /Applications "/Volumes/PicHome/Applications"
           hdiutil detach "$DEV"
           hdiutil convert "$RW" -format UDZO -o "$DMG"
           rm -f "$RW"
           ls -lh "$DMG"
+
+      # dmg 也要签名 + 公证 + 装订。否则用户从浏览器下载 dmg（带 quarantine 属性）后，
+      # Gatekeeper 会因「无法验证开发者」拦住打开 —— 即使里面的 .app 已经装订过。
+      # notarize.sh 会先对 dmg 签名（stapler 要求目标已签名），再提交公证。
+      - name: Notarize & staple dmg
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          VER="${{ github.ref_name }}"; VER="${VER#v}"
+          DMG="desktop/src-tauri/target/release/bundle/dmg/PicHome_${VER}_${{ matrix.arch }}.dmg"
+          bash desktop/notarize.sh "$DMG"
 
       - name: Upload dmg artifact
         uses: actions/upload-artifact@v4
