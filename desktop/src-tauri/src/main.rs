@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::os::unix::process::CommandExt; // 提供 process_group(0)，让 sidecar 成为独立进程组
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::Mutex;
@@ -26,6 +27,10 @@ fn spawn_backend(app: &tauri::AppHandle) -> std::io::Result<Child> {
     Command::new(&sidecar_exe)
         .env("PICHOME_DESKTOP", "1")
         .env("PICHOME_DESKTOP_PORT", "14567")
+        // 让 sidecar 成为新进程组的组长（pgid = 自身 pid）。PyInstaller bootloader
+        // 会 fork 出 Python 子进程真正监听 14567，二者同属该进程组，退出时 killpg
+        // 即可整组回收，避免只杀父进程留下孤儿子进程、端口 14567 残留。
+        .process_group(0)
         .spawn()
 }
 
