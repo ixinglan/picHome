@@ -91,8 +91,10 @@ docker port pichome-web 8000        # find the mapped host port (28080 by defaul
 python scripts/pichome.py --upload ./photo.png --url http://127.0.0.1:28080
 ```
 If a file already lives inside the container (e.g. produced by another container
-step), run in-process instead:
+step), copy the script in and run it in-process — the image does **not** ship
+this script (`.dockerignore` excludes `skills/`):
 ```bash
+docker compose cp scripts/pichome.py web:/app/
 docker compose exec -T web python pichome.py --in-process --upload /app/inbox/photo.png
 ```
 

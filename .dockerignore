@@ -26,8 +26,8 @@ build/
 dist/
 .idea/
 docs/
+# skills/ 是给 AI Agent 用的技能目录（含 CLI 脚本），无需进运行镜像
 skills/
 node_modules/
-# 根目录文档与 CLI 脚本无需进运行镜像
+# 根目录文档无需进运行镜像
 *.md
-pichome.py

@@ -26,7 +26,8 @@ pichome —— picHome 图床命令行客户端（供人与 AI Agent 调用）�
   # 本地 runserver（8000）或其它部署，显式指定服务地址
   python pichome.py --upload ./photo.png --url http://127.0.0.1:8000
 
-  # Docker 容器内（in-process，走 Django 核心）
+  # 容器内（in-process，走 Django 核心；镜像不含本脚本，需先拷进去）
+  docker compose cp pichome.py web:/app/
   docker compose exec -T web python pichome.py --in-process --upload /app/inbox/photo.png
 
   # 带标签

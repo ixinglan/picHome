@@ -1,95 +1,128 @@
 # picHome 🖼️
 
-> **自托管的「多图床」图片管理工具** —— 网页上传、命令行上传、API 上传，一键拿到 CDN / Markdown / HTML 三种链接。
-> 支持 **七牛云 Kodo · 阿里云 OSS · 腾讯云 COS · GitHub 仓库 · 本地**，页面上填配置即切换，无需改代码。
+> **自托管的「多图床」图片管理工具** —— 网页、命令行、API 三种方式上传，一次拿到 CDN / Markdown / HTML 三种链接。
+> 支持 **七牛云 Kodo · 阿里云 OSS · 腾讯云 COS · GitHub 仓库 · 本地存储**，在页面上填配置即可切换，无需改代码。
 
-[![Deploy with Docker](https://img.shields.io/badge/docker-compose-一键部署-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
-[![Python](https://img.shields.io/badge/Python-3.13+-3776AB?logo=python&logoColor=white)](https://www.python.org)
+[![macOS dmg](https://img.shields.io/badge/macOS-.dmg-000000?logo=apple&logoColor=white)](https://github.com/ixinglan/picHome/releases)
+[![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
+[![Tauri](https://img.shields.io/badge/Tauri-v2-24C8DB?logo=tauri&logoColor=white)](desktop/)
+[![Python](https://img.shields.io/badge/Python-3.13%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Django](https://img.shields.io/badge/Django-5.2%2B-092E20?logo=django&logoColor=white)](https://www.djangoproject.com)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![AI Ready](https://img.shields.io/badge/AI%20Agent-Ready-FF6F00?logo=openai&logoColor=white)](#-给-ai-agent-用的-skill)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](#-license)
+[![AI Ready](https://img.shields.io/badge/AI%20Agent-Ready-FF6F00?logo=openai&logoColor=white)](#给-ai-agent-用的-skill)
 
 ---
 
-## 🔰 演示账号
+## 🌐 在线体验
 
-用于登录后体验浏览效果，但不能做任何写操作（上传 / 删除 / 改资料 / 云端删除 / 回收站恢复均被拦截）：
+不想先部署？用**只读演示账号**看看界面（上传 / 删除 / 改配置全部被服务端拦截）：
 
-- 演示地址：[https://pichome.zhaojq.top](https://pichome.zhaojq.top)
-- 用户名：`demo`
-- 密码：`demo12345`
+| 地址 | 用户名 | 密码 |
+| --- | --- | --- |
+| <https://pichome.zhaojq.top> | `demo` | `demo12345` |
 
-演示账号的服务端强制只读由 `gallery/middleware.py` 的 `DemoReadOnlyMiddleware` 实现（`UserProfile.is_demo = True` 标记），前端仅做按钮隐藏，真正的安全拦截在服务端。如需新建/调整演示账号，见迁移 `gallery/migrations/0006_create_demo_user.py`。
+> 只读由服务端中间件 `gallery/middleware.py::DemoReadOnlyMiddleware` 强制实现（`UserProfile.is_demo = True`），前端隐藏按钮只是辅助，改包也绕不过。
 
 ---
 
-## ✨ 为什么选 picHome
+## ✨ 核心特性
 
-- **多图床一处管理**：七牛 / 阿里 / 腾讯 / GitHub / 本地，在网页「图床设置」里填配置就能启用，自动渲染表单、校验必填项。
-- **四种上传入口，总有一种适合你**：网页拖拽、命令行 `pichome`、HTTP API、AI Agent Skill。
+- **多图床一处管理**：七牛 / 阿里 / 腾讯 / GitHub / 本地，网页「图床设置」里填配置即启用，表单自动渲染、必填项自动校验。
+- **三种上传入口**：网页拖拽 / 粘贴、命令行 `pichome`、HTTP API。另附 AI Agent Skill。
 - **链接即取即用**：每张图同时给 **CDN 原图 / Markdown / HTML** 三种链接，逐个一键复制。
-- **不怕误删**：删除只移除图床对象，本地文件进回收站，可恢复、可彻底清除。
-- **零运维负担**：单机 Docker 镜像自带 Gunicorn + Whitenoise，**不需要 Nginx**，一条命令跑起来。
+- **不怕误删**：删除只移除图床对象，本地文件进回收站，可恢复（重新上传）也可彻底清除。
+- **两种形态**：macOS 原生桌面 App（双击即用）与 Docker 自托管（跨平台、可公网）。
+- **零运维负担**：单镜像自带 Gunicorn + Whitenoise，**不需要 Nginx**，一条命令跑起来。
 - **AI 友好**：对外 API 返回标准 JSON，已封装成 AI Agent 可直接调用的 Skill。
 
 ---
 
-## 🚀 快速开始（3 分钟跑起来）
+## 🚀 选一种方式开始
+
+| | 🖥️ 桌面客户端 | 🐳 Docker 自托管 |
+| --- | --- | --- |
+| **适合** | macOS 个人使用，要「双击即用」 | 服务器 / NAS / 多设备共用，需要公网访问 |
+| **安装** | 下载 `.dmg` 拖进「应用程序」 | `docker compose up -d --build` |
+| **访问** | 独立 App 窗口（后端跑在 `127.0.0.1:14567`） | 浏览器打开 `http://localhost:28080` |
+| **数据** | `~/Library/Application Support/pichome` | Docker 数据卷 `db_data` / `media_data` |
+| **依赖** | 无 | Docker + Docker Compose v2 |
+
+---
+
+## 🖥️ 方式一：桌面客户端（macOS）
+
+基于 Tauri v2 把同一套 Django 后端（PyInstaller 冻结为 sidecar）打进原生 App，**无需 Docker、无需 Python 环境**。
+
+### 1. 下载与安装
+
+到 [Releases](https://github.com/ixinglan/picHome/releases) 下载对应架构的 dmg：
+
+| 你的 Mac | 下载文件 |
+| --- | --- |
+| Apple Silicon（M 系列芯片） | `PicHome_<版本>_aarch64.dmg` |
+| Intel | `PicHome_<版本>_x64.dmg` |
+
+> 不确定芯片？点左上角 苹果菜单 →「关于本机」，看「芯片」或「处理器」一行。
+
+装好后：双击 dmg → 把 `PicHome.app` 拖进「应用程序」→ 打开。
+
+> 未配置 Apple 开发者签名的版本，首次打开会提示「无法验证开发者」，属正常现象：
+> **右键 App → 打开**，或到「系统设置 → 隐私与安全性」点「仍要打开」。
+
+### 2. 首次使用：配置图床
+
+打开 App → 右上角齿轮 →「图床设置」→「新建」，选图床类型，按表单填 AccessKey / SecretKey / Bucket / 域名，保存即生效。
+
+**还没申请云图床？** 直接选「本地存储」就能上传体验；之后新建云图床，再点「同步」把历史图片推上去。
+
+### 3. 端口与数据
+
+| 项 | 值 |
+| --- | --- |
+| 后端监听 | `127.0.0.1:14567`（仅本机可访问，不对外暴露） |
+| 数据目录 | `~/Library/Application Support/pichome`（SQLite + 原图 + 回收站） |
+| 最低系统 | macOS 10.15 |
+
+> 桌面版与网页版**数据完全隔离**，可以同时装、互不干扰。
+
+---
+
+## 🐳 方式二：Docker 自托管
 
 > 前提：已安装 [Docker](https://www.docker.com/products/docker-desktop/) 与 Docker Compose v2。
 
+### 快速开始
+
 ```bash
 # 1. 拿代码
-git clone https://github.com/<your-org>/pichome.git
-cd pichome
+git clone https://github.com/ixinglan/picHome.git
+cd picHome
 
 # 2. 准备环境变量（图床密钥可留空，之后在网页里配也行）
 cp .env.example .env
-#    vi .env            # 可选：填七牛/阿里/腾讯的密钥，或用网页配置
 
-# 3. 启动（首次会自动建库、建管理员、收集静态、拉起服务）
+# 3. 启动：首次会自动迁移建库、建管理员、收集静态文件
 docker compose up -d --build
 ```
 
-启动完成后访问 **http://localhost:28080** 🎉
+启动完成后访问 <http://localhost:28080>，用默认管理员登录：
 
 ```
-默认管理员账号（请务必登录后第一时间修改密码）：
-  用户名：admin
-  密码：  admin12345
+用户名：admin
+密码：  admin12345        ← 请登录后第一时间修改
 ```
 
-> 不填任何图床密钥也能先跑起来：默认会播种一条「本地」图床，图片存到容器卷里，可立即体验完整上传 / 管理流程。
+> 不填任何云图床密钥也能跑起来：默认会播种一条「本地存储」，图片落在数据卷里，可立即体验完整上传 / 管理流程。
 
----
-
-## 🖼️ 网页端：上传与管理
-
-登录后你会看到这几个页面：
-
-| 页面 | 能干啥 |
-| --- | --- |
-| **图库** | 拖拽 / 点击 / 粘贴（Ctrl+V）上传；按图床、标签、关键词筛选；卡片悬浮预览原图（灯箱）；逐个复制三种链接；批量选择 |
-| **历史** | 按时间倒序的全部上传记录，随时复制链接 |
-| **回收站** | 已删图片的本地预览；支持**恢复**（重新上传到图床）或**彻底删除** |
-| **图床设置** | 增删多个图床、填写密钥、启用 / 停用、字段校验 |
-
-顶栏点**头像 / 昵称**弹出下拉，可进入「用户管理」修改头像、昵称、密码，或退出登录。
-
----
-
-## ⚙️ 配置图床
-
-两种方式，推荐用网页（最直观）：
+### 配置图床
 
 **方式 A · 网页配置（推荐）**
-进入「图床设置 → 新建」，选择图床类型，按表单填 AccessKey / SecretKey / Bucket / 域名等，保存即生效，无需重启。
+登录后进入「图床设置 → 新建」，选择图床类型，填 AccessKey / SecretKey / Bucket / 域名等，保存即生效，无需重启。
 
-**方式 B · 环境变量播种（仅首次）**
+**方式 B · 环境变量播种（仅首次启动）**
 在 `.env` 里填 `QINIU_*`（或对应云厂商变量），首次启动的 `initstorage` 命令会自动播种一条启用中的配置；之后以网页配置为准。
 
 ```dotenv
-# .env 示例（七牛云，仅用于首次播种；网页配置优先）
 QINIU_ACCESS_KEY=你的AccessKey
 QINIU_SECRET_KEY=你的SecretKey
 QINIU_BUCKET=你的bucket
@@ -97,138 +130,100 @@ QINIU_DOMAIN=https://你的CDN域名      # 结尾不要带斜杠
 QINIU_THUMB_STYLE=?imageView2/2/w/400/q/75
 ```
 
-> 各云厂商密钥获取地址：七牛云「密钥管理」、阿里云 OSS「AccessKey 管理」、腾讯云 COS「API 密钥」、GitHub「Settings → Developer settings → Personal access tokens」。
+> 各云厂商密钥获取入口：七牛云「密钥管理」· 阿里云 OSS「AccessKey 管理」· 腾讯云 COS「API 密钥」· GitHub「Settings → Developer settings → Personal access tokens」。
+
+### 部署到公网服务器
+
+只需改 `docker-compose.yml` 里两处，再 `docker compose up -d --build`：
+
+```yaml
+environment:
+  DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,img.example.com,1.2.3.4"  # 加上你的域名 / 公网 IP
+  PICHOME_API_TOKEN: "换成一串随机字符串"                                # 给上传 API 上锁
+```
+
+- 端口映射是 `宿主机:容器 = 28080:8000`，改左边即可换对外端口（记得同步 `PICHOME_API_URL`）。
+- `db_data`（SQLite）与 `media_data`（原图 + 回收站）是持久化卷，**容器删了重建数据不丢**。
+- 需要 HTTPS / 域名？在前面加一层 Nginx / Caddy 反向代理即可 —— 镜像自带 Gunicorn + Whitenoise，不需要额外装 Web 服务器。
+- 反向代理记得透传 `X-Forwarded-Proto`，否则 Django 会因 CSRF 校验返回 403。
+
+> ⚠️ **安全提示**：把服务暴露到公网前，务必设置 `PICHOME_API_TOKEN`，否则 `/api/v1/upload` 匿名即可上传。
 
 ---
 
-## 💻 命令行上传（`pichome` CLI）
+## 🖼️ 界面预览
 
-适合脚本、CI、或把图片从终端直接传上去：
+<img src="docs/1.png" alt="登录页" width="860">
+<img src="docs/2.png" alt="图库页" width="860">
+<img src="docs/3.png" alt="历史页" width="860">
+<img src="docs/4.png" alt="回收站" width="860">
+<img src="docs/5.png" alt="图床设置" width="860">
+
+---
+
+## 💻 上传方式
+
+### 命令行 CLI
+
+仓库自带一个**零依赖单文件脚本** `skills/pichome-upload/scripts/pichome.py`（仅用 Python 标准库，可复制到任意目录使用），适合脚本、CI，或从终端直接把图传上去：
 
 ```bash
-# 服务已由 docker compose 起着（宿主机端口 28080）时，最常用：
-python pichome.py --upload ./photo.png
+cd skills/pichome-upload/scripts
 
-# 带标签
-python pichome.py --upload ./photo.png --tags "风景,旅行"
+# 默认自动探测：桌面 App 开着（14567）就用桌面版，否则回退 Web 版（28080）
+python pichome.py --upload /path/to/photo.png
 
-# 指定服务地址（例如本地 runserver 在 8000）
-python pichome.py --upload ./photo.png --url http://127.0.0.1:8000
+# 强制指定形态（不确定端口时最省事）
+python pichome.py --upload /path/to/photo.png --desktop   # 桌面版 14567
+python pichome.py --upload /path/to/photo.png --web       # Web 版 28080
+python pichome.py --upload /path/to/photo.png --no-probe  # 跳过探测，直接用 Web 版
 
-# 服务设了令牌时
-python pichome.py --upload ./photo.png --token "你的API令牌"
+# 显式指定地址（例如本地 runserver）
+python pichome.py --upload /path/to/photo.png --url http://127.0.0.1:8000
 
-# 文件已经在容器里（容器内模式，零网络开销）
-docker compose exec -T web python pichome.py --in-process --upload /app/inbox/photo.png
+# 带标签 / 带令牌（服务设了 PICHOME_API_TOKEN 时）
+python pichome.py --upload /path/to/photo.png --tags "风景,旅行"
+python pichome.py --upload /path/to/photo.png --token "你的API令牌"
 ```
 
-返回标准 JSON：`{ "ok": true, "cdn_url": "...", "markdown": "![...](...)", "html": "<img ...>" }`。
+> **两种服务形态与端口**：**桌面版 `14567`**（Tauri App 启动即拉起后端）、**Web 版 `28080`**（docker compose 宿主机映射，容器内是 `8000`）。不加参数时脚本会先探测 `14567`，在线则优先用桌面版 —— 所以「打开桌面 App 后让 Agent 上传」无需手动传地址。
 
----
+返回标准 JSON：
 
-## 🔌 对外 API（给脚本 / AI Agent）
-
-上传接口，方便被外部程序或智能体调用：
-
-```http
-POST /api/v1/upload
-Content-Type: multipart/form-data
-
-file=@photo.png
-tags=风景,旅行          # 可选
-token=你的API令牌        # 服务设了 PICHOME_API_TOKEN 时必填
+```json
+{ "ok": true, "cdn_url": "...", "markdown": "![...](...)", "html": "<img ...>" }
 ```
+
+### HTTP API
+
+方便被外部程序或智能体直接调用：
 
 ```bash
 curl -F "file=@photo.png" \
      -F "tags=风景" \
-     "http://localhost:28080/api/v1/upload"
+     "http://localhost:28080/api/v1/upload?token=你的API令牌"
 ```
 
-成功响应（节选）：
+| 项 | 说明 |
+| --- | --- |
+| 方法 / 路径 | `POST /api/v1/upload` |
+| 表单字段 | `file`（必填，单张）、`tags`（可选，逗号分隔） |
+| 支持的格式 | `.jpg` `.jpeg` `.png` `.gif` `.webp` `.bmp` `.heic` `.svg` |
+| 令牌 | 服务设了 `PICHOME_API_TOKEN` 时必填，三种传法皆可：`?token=`、表单字段 `token`、`Authorization: Bearer <token>` |
+| 响应 | `{"ok": true, "cdn_url": ..., "markdown": ..., "html": ...}` |
 
-```json
-{
-  "ok": true,
-  "cdn_url": "https://cdn.example.com/img/20260904_123000_123_ab12.png",
-  "markdown": "![photo](https://cdn.example.com/...)",
-  "html": "<img src=\"https://cdn.example.com/...\" alt=\"photo\">"
-}
-```
+### 给 AI Agent 用的 Skill
 
-> 安全提示：把服务暴露到公网前，务必在 `.env` 设置 `PICHOME_API_TOKEN`，否则上传接口匿名开放。
-
----
-
-## 🖥️ 桌面版（macOS 原生 App）
-
-picHome 不止有网页版，还提供 **macOS 原生桌面 App**：基于 Tauri v2，把同一套 Django 后端用 PyInstaller 冻结进 App，**双击即用、无需 Docker**。
-
-- **后端端口**：桌面 App 启动后，内置后端监听 **`127.0.0.1:14567`**（注意和网页版 docker compose 的 `28080` / 本地 `runserver` 的 `8000` 不同）。
-- **数据存储**：图片与数据库落在 `~/Library/Application Support/pichome`，与网页版互不干扰。
-- **能力一致**：图床配置、上传、回收站、链接生成与网页版完全相同；并且**未配置云图床时也能先上传到本地**，之后在界面点「同步」推到云端。
-
-### 如何拿到 dmg
-
-1. **GitHub Releases（推荐）**：项目打 `v*` tag 会触发 GitHub Actions，自动为 **Apple Silicon** 与 **Intel** 两种架构构建 `.dmg`，到 Releases 页下载即可。
-2. **本地自行打包**：参考仓库根目录 `package.md`，在 macOS 上执行打包流程（Tauri 只产 `.app`，再用 `hdiutil` 生成 dmg，规避 CI 无 GUI 时 `create-dmg` 卡死的问题）。
-
-### 安装与使用
+`skills/pichome-upload/` 是一个可直接投喂给 AI 助手的 Skill，让它在对话里不离开上下文就能传图、拿回可嵌入链接：
 
 ```bash
-# 1. 双击下载的 PicHome_x.y.z_aarch64.dmg 挂载
-# 2. 把 PicHome.app 拖进「应用程序」
-# 3. 首次打开若提示「无法验证开发者」（未配置 Apple 签名时属正常）：
-#    右键 → 打开，或在 系统设置 → 隐私与安全性 → 仍要打开
-```
-
-启动后就是完整的图库界面，后端已在 `14567` 静默运行；此时让 AI Agent 帮你上传图片，CLI 会**自动探测并优先命中 14567**（见下方 Skill 说明）。
-
----
-
-## 🤖 给 AI Agent 用的 Skill
-
-项目自带 `skills/pichome-upload`，让 AI 助手在对话中不离开上下文就能把图片传上 picHome 并拿回可嵌入链接。
-
-```bash
-# 把 skill 交给你的 Agent（以 WorkBuddy / 类 Claude 客户端为例）
-# 复制 skills/pichome-upload 到 Agent 的 skills 目录即可启用
+# 复制到 Agent 的 skills 目录即可启用（以 WorkBuddy 为例）
 cp -r skills/pichome-upload ~/.workbuddy/skills/
 ```
 
-启用后，Agent 可以这样用（自然语言即可）：
+启用后，自然语言即可：「把这张图传上 picHome，给我 Markdown 链接」。
 
-> "把这张图传上 picHome，给我 Markdown 链接"
-
-Agent 会在服务运行时调用 `scripts/pichome.py`，返回 JSON 链接并直接贴进回复。
-
-> **端口说明（桌面版优先）**：桌面 App 用 `14567`、网页版用 `28080`/`8000`。CLI 默认**先探测桌面版 14567 是否在线，在线则优先用桌面版**，否则回退 Web 版——所以「打开桌面 App 后让 Agent 上传」能自动命中正确端口，无需手动传 `--url`。需要强制形态时用 `--desktop` / `--web`，例如：
-> ```bash
-> python skills/pichome-upload/scripts/pichome.py --upload ./photo.png --desktop
-> python skills/pichome-upload/scripts/pichome.py --upload ./photo.png --web
-> ```
-> 项目内该 skill 同时存在于 `skills/pichome-upload/` 与 `.workbuddy/skills/pichome-upload/`（两份保持一致）。
-
----
-
-## ☁️ 部署到公网服务器
-
-单机镜像已经够用，部署到服务器只需改两处：
-
-```yaml
-# docker-compose.yml 的 web 服务里
-environment:
-  DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,img.example.com,1.2.3.4"  # 加你的域名/IP
-  PICHOME_API_TOKEN: "换成一串随机字符串"   # 给上传 API 上锁
-```
-
-```bash
-docker compose up -d --build
-```
-
-- 端口是 `宿主机:容器 = 28080:8000`，改左边即可换访问端口（记得同步 `PICHOME_API_URL`）。
-- 数据持久化：`db_data`（SQLite）、`media_data`（原图 + 回收站）两个卷已挂载，**容器删了重建数据不丢**。
-- 需要 HTTPS / 域名？在前面加一层 Nginx / Caddy 反代即可，镜像本身不带 Web 服务器。
+> Skill 内部调用的就是上面那个脚本（`scripts/pichome.py`），所以端口探测、令牌、标签等行为完全一致，装好即用、无需额外配置。
 
 ---
 
@@ -248,29 +243,37 @@ flowchart LR
     WEB --> STATIC[Whitenoise<br/>静态资源]
 ```
 
-**分层设计**：上传核心 `gallery.upload_service` 与 Django 解耦，既能被网页调用，也能被 CLI `--in-process` 直接复用；图床适配层 `gallery/storage/*` 每个图床一个 Provider，新增图床只需写一个类。
+**分层设计**：上传核心 `gallery.upload_service` 与 Django 解耦，网页与 CLI `--in-process` 复用同一套逻辑；图床适配层 `gallery/storage/*` 每个图床一个 Provider，新增图床只需写一个类。
+
+**桌面版**：Tauri v2（Rust）壳负责窗口与进程生命周期，启动时 spawn 冻结后的 Django sidecar（waitress 监听 `127.0.0.1:14567`），WebView 直接加载该地址 —— 不打包任何前端构建产物。打包流程见 [`package.md`](package.md)。
 
 ---
 
 ## 📁 项目结构
 
 ```
-pichome/
-├── docker-compose.yml      # 单机部署
-├── Dockerfile              # python:3.13-slim 生产镜像
-├── docker-entrypoint.sh    # 迁移→建账号→播种图床→收集静态→启 Gunicorn
-├── pichome.py              # 命令行客户端（HTTP / in-process 双模式）
-├── requirements.txt
-├── .env.example            # 环境变量模板
+picHome/
 ├── gallery/                # Django 应用
 │   ├── models.py           # ImageAsset / StorageConfig / Tag / UserProfile
-│   ├── views.py            # 页面 + API + 账户 + 背景代理
+│   ├── views.py            # 页面 + API + 账户
+│   ├── upload_service.py   # 上传核心（与 Django 解耦，网页 / CLI 共用）
 │   ├── storage/            # 各图床 Provider（可扩展）
+│   ├── middleware.py       # 演示账号只读拦截
 │   ├── templates/          # 服务端渲染模板
-│   └── static/             # 原生 HTML/CSS/JS
-├── pichome_web/            # Django 工程配置（settings / wsgi）
-├── desktop/                # Tauri v2 桌面壳 + Django 后端冻结（产出 macOS .app / .dmg）
-└── skills/pichome-upload/  # 给 AI Agent 用的上传 Skill（.workbuddy/skills 下同步一份）
+│   └── static/             # 原生 HTML / CSS / JS
+├── pichome_web/            # Django 工程配置（settings / wsgi / urls）
+├── desktop/                # Tauri v2 桌面壳 + 后端冻结（打包 macOS .app / .dmg）
+│   ├── build_backend.sh    # PyInstaller 冻结后端
+│   ├── sign_app_bundle.sh  # 深度重签 + framework 结构还原
+│   └── notarize.sh         # 公证 + 装订
+├── skills/pichome-upload/  # AI Agent Skill（含单文件 CLI 脚本 scripts/pichome.py）
+├── docs/                   # 截图
+├── Dockerfile              # python:3.13-slim 生产镜像
+├── docker-compose.yml      # 单机部署
+├── docker-entrypoint.sh    # 迁移 → 建账号 → 播种图床 → 收集静态 → 启 Gunicorn
+├── requirements.txt
+├── .env.example            # 环境变量模板
+└── package.md              # 桌面端打包说明
 ```
 
 ---
@@ -279,13 +282,15 @@ pichome/
 
 | 变量 | 说明 | 默认 |
 | --- | --- | --- |
-| `QINIU_*` / `ALIYUN_*` / `TENCENT_*` | 各云图床密钥（仅首次播种用） | 空 |
-| `PICHOME_API_TOKEN` | 上传 API 令牌，留空 = 不校验（仅内网） | 空 |
-| `PICHOME_API_URL` | CLI 默认访问地址 | `http://127.0.0.1:28080` |
-| `DJANGO_DEBUG` | 调试模式 | `True`（容器里强制 `False`） |
-| `DJANGO_SECRET_KEY` | Django 密钥，生产请改随机串 | 示例值 |
+| `QINIU_*` / `ALIYUN_*` / `TENCENT_*` | 各云图床密钥（仅首次播种用，之后以网页配置为准） | 空 |
+| `PICHOME_API_TOKEN` | 上传 API 令牌，留空 = 不校验（**仅限内网**） | 空 |
+| `PICHOME_API_URL` | CLI 目标地址（设了就用它，跳过端口探测） | 不设时自动探测：桌面版 `14567` 优先，回退 `28080` |
+| `DJANGO_DEBUG` | 调试模式 | `True`（容器内强制 `False`） |
+| `DJANGO_SECRET_KEY` | Django 密钥，生产环境请改成随机串 | 示例值 |
 | `DJANGO_ALLOWED_HOSTS` | 允许访问的 host，逗号分隔 | `127.0.0.1,localhost` |
 | `DJANGO_DB_PATH` | 数据库文件路径（容器指向持久化卷） | `/app/data/db.sqlite3` |
+
+> 桌面版数据目录可用 `PICHOME_DATA_DIR` 覆盖（默认 `~/Library/Application Support/pichome`）。
 
 ---
 
@@ -296,20 +301,28 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 python manage.py migrate
-python manage.py inituser          # 建管理员（默认 admin/admin12345）
-python manage.py initstorage       # 播种图床配置（读 .env）
+python manage.py inituser            # 建管理员（默认 admin / admin12345）
+python manage.py initstorage         # 播种图床配置（读 .env）
 python manage.py runserver 0.0.0.0:8000
+```
+
+桌面端本地调试：
+
+```bash
+cd desktop && npm install && npm run dev     # 会自动先跑 build_backend.sh 冻结后端
 ```
 
 ---
 
-## 📸 截图
+## ❓ 常见问题
 
-![登录页面](docs/1.png)
-![图库页面](docs/2.png)
-![历史页面](docs/3.png)
-![回收站页面](docs/4.png)
-![图床设置](docs/5.png)
+| 问题 | 说明 |
+| --- | --- |
+| 端口 `14567` / `28080` / `8000` 分不清 | 桌面 App `14567`；Docker 对外 `28080`（容器内 `8000`）；本地 `runserver` 默认 `8000` |
+| 上传后图片存在哪 | 配置了云图床就传到云端；「本地存储」在容器里（`media_data` 卷）或桌面版数据目录内 |
+| 删除图片后云端还在吗 | 从图库删除会**同时移除云端对象**并把本地文件移进回收站；回收站里可恢复 |
+| 网页能打开但 POST 报 403 | 反向代理没透传 `X-Forwarded-Proto: https`，Django CSRF 校验不通过 |
+| 桌面版装完提示「无法验证开发者」 | 未签名版本属正常，右键 App →「打开」即可，或在「隐私与安全性」里放行 |
 
 ---
 
@@ -317,9 +330,9 @@ python manage.py runserver 0.0.0.0:8000
 
 欢迎 Issue / PR！
 
-1. Fork 并创建特性分支 (`git checkout -b feat/your-feature`)
-2. 提交改动 (`git commit -m 'feat: ...'`)
-3. 推送 (`git push origin feat/your-feature`)
+1. Fork 并创建特性分支（`git checkout -b feat/your-feature`）
+2. 提交改动（`git commit -m 'feat: ...'`）
+3. 推送（`git push origin feat/your-feature`）
 4. 开 Pull Request
 
 新增一个图床只需在 `gallery/storage/` 下写一个 Provider 类（参考 `aliyun_provider.py`），无需改动其它代码。
