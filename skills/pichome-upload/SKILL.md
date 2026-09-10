@@ -36,19 +36,46 @@ The skill ships `scripts/pichome.py` — a single-file CLI with two modes:
 
 ## Usage
 
+### Port model: desktop vs web (桌面版优先)
+
+picHome ships in two shapes that share the **same Django backend** but listen on
+different ports. The CLI resolves the target automatically:
+
+| 形态 | 端口 | 说明 |
+| --- | --- | --- |
+| **桌面版（Tauri 原生 App）** | `127.0.0.1:14567` | App 启动即拉起 Django(waitress) 后端，数据在 `~/Library/Application Support/pichome` |
+| **Web 版（docker compose）** | `127.0.0.1:28080`（容器内 `8000`） | `docker port pichome-web 8000` 查映射端口 |
+| **Web 版（本地 runserver）** | `127.0.0.1:8000` | `python manage.py runserver` |
+
+**解析优先级**（无需记端口，默认即可）：
+1. 显式 `--desktop` / `--web` 强制指定形态；
+2. 显式 `--url <addr>` 最高优先（Agent 在容器内等场景直接给地址）；
+3. 环境变量 `PICHOME_API_URL`（历史默认指向 Web 版 `28080`）；
+4. **桌面版优先探测**：未显式指定时，脚本先 `GET http://127.0.0.1:14567`，
+   若桌面 App 在线则优先用桌面版，否则回退 Web 版默认端口 `28080`。
+
+> 这就是为什么「打开桌面 App 后让 Agent 上传图片」能自动命中正确端口——不用再手动传 `--url`。
+
 ### Prerequisites
 - A picHome service reachable over HTTP. With Docker Compose the host port is
   `28080` by default (container listens on `8000`); verify with
-  `docker port pichome-web 8000`.
+  `docker port pichome-web 8000`. The **desktop app** listens on `14567` instead.
 - The service must have an **active storage backend** configured (Settings →
   Storage). If none is active, uploads are rejected with `error`.
+  (Note: the desktop app also supports local-only upload — files land on disk
+  and can be synced to a cloud backend later.)
 - If the service sets `PICHOME_API_TOKEN`, pass `--token` or export
   `PICHOME_API_TOKEN`; when unset the API accepts anonymous calls.
 
 ### Host mode (agent, service already running)
 ```bash
-# default service URL http://127.0.0.1:28080 (or set PICHOME_API_URL)
+# 默认即可：脚本先探测桌面版 14567，在线则优先用桌面版，否则回退 28080
 python scripts/pichome.py --upload /path/to/photo.png
+
+# 强制形态
+python scripts/pichome.py --upload /path/to/photo.png --desktop   # 强制 14567
+python scripts/pichome.py --upload /path/to/photo.png --web       # 强制 28080
+python scripts/pichome.py --upload /path/to/photo.png --no-probe  # 跳过探测，直接用 Web 默认
 
 # with tags, custom service URL (e.g. local `manage.py runserver`)
 python scripts/pichome.py --upload /path/to/photo.png --tags "风景,旅行" \

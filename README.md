@@ -160,6 +160,32 @@ curl -F "file=@photo.png" \
 
 ---
 
+## 🖥️ 桌面版（macOS 原生 App）
+
+picHome 不止有网页版，还提供 **macOS 原生桌面 App**：基于 Tauri v2，把同一套 Django 后端用 PyInstaller 冻结进 App，**双击即用、无需 Docker**。
+
+- **后端端口**：桌面 App 启动后，内置后端监听 **`127.0.0.1:14567`**（注意和网页版 docker compose 的 `28080` / 本地 `runserver` 的 `8000` 不同）。
+- **数据存储**：图片与数据库落在 `~/Library/Application Support/pichome`，与网页版互不干扰。
+- **能力一致**：图床配置、上传、回收站、链接生成与网页版完全相同；并且**未配置云图床时也能先上传到本地**，之后在界面点「同步」推到云端。
+
+### 如何拿到 dmg
+
+1. **GitHub Releases（推荐）**：项目打 `v*` tag 会触发 GitHub Actions，自动为 **Apple Silicon** 与 **Intel** 两种架构构建 `.dmg`，到 Releases 页下载即可。
+2. **本地自行打包**：参考仓库根目录 `package.md`，在 macOS 上执行打包流程（Tauri 只产 `.app`，再用 `hdiutil` 生成 dmg，规避 CI 无 GUI 时 `create-dmg` 卡死的问题）。
+
+### 安装与使用
+
+```bash
+# 1. 双击下载的 PicHome_x.y.z_aarch64.dmg 挂载
+# 2. 把 PicHome.app 拖进「应用程序」
+# 3. 首次打开若提示「无法验证开发者」（未配置 Apple 签名时属正常）：
+#    右键 → 打开，或在 系统设置 → 隐私与安全性 → 仍要打开
+```
+
+启动后就是完整的图库界面，后端已在 `14567` 静默运行；此时让 AI Agent 帮你上传图片，CLI 会**自动探测并优先命中 14567**（见下方 Skill 说明）。
+
+---
+
 ## 🤖 给 AI Agent 用的 Skill
 
 项目自带 `skills/pichome-upload`，让 AI 助手在对话中不离开上下文就能把图片传上 picHome 并拿回可嵌入链接。
@@ -175,6 +201,13 @@ cp -r skills/pichome-upload ~/.workbuddy/skills/
 > "把这张图传上 picHome，给我 Markdown 链接"
 
 Agent 会在服务运行时调用 `scripts/pichome.py`，返回 JSON 链接并直接贴进回复。
+
+> **端口说明（桌面版优先）**：桌面 App 用 `14567`、网页版用 `28080`/`8000`。CLI 默认**先探测桌面版 14567 是否在线，在线则优先用桌面版**，否则回退 Web 版——所以「打开桌面 App 后让 Agent 上传」能自动命中正确端口，无需手动传 `--url`。需要强制形态时用 `--desktop` / `--web`，例如：
+> ```bash
+> python skills/pichome-upload/scripts/pichome.py --upload ./photo.png --desktop
+> python skills/pichome-upload/scripts/pichome.py --upload ./photo.png --web
+> ```
+> 项目内该 skill 同时存在于 `skills/pichome-upload/` 与 `.workbuddy/skills/pichome-upload/`（两份保持一致）。
 
 ---
 
@@ -236,7 +269,8 @@ pichome/
 │   ├── templates/          # 服务端渲染模板
 │   └── static/             # 原生 HTML/CSS/JS
 ├── pichome_web/            # Django 工程配置（settings / wsgi）
-└── skills/pichome-upload/  # 给 AI Agent 用的上传 Skill
+├── desktop/                # Tauri v2 桌面壳 + Django 后端冻结（产出 macOS .app / .dmg）
+└── skills/pichome-upload/  # 给 AI Agent 用的上传 Skill（.workbuddy/skills 下同步一份）
 ```
 
 ---
