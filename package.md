@@ -188,44 +188,61 @@ Tauri 的 notarize 跑在 `tauri build` 的**最末一步**。等它报错时，
 `APPLE_PASSWORD` / `APPLE_TEAM_ID`。Tauri 检测不到公证凭据会打印
 `skipping app notarization...` 并正常成功退出，剩下的事由 `notarize.sh` 接管。
 
-#### 真正让公证失败的根因：`Python.framework` 被签成了 flat 签名
+#### 真正让公证失败的根因：`Python.framework` 在最终 .app 里「不是框架」
 
 CI 的 `notarytool log` 报的是：
 
 ```
 statusCode 4000  "Archive contains critical validation errors"
-path:    PicHome.app/Contents/Resources/pichome-server/_internal/Python.framework/Versions/3.12/Python
+path:    PicHome.app/Contents/Resources/pichome-server/_internal/Python.framework/Python
 message: "The signature of the binary is invalid."   (arm64)
 ```
 
-链条如下：
+**注意路径是 `Python.framework/Python`（框架根目录），不是 `Versions/3.12/Python`。**
+这个细节就是破案线索 —— 它说明 codesign 把**根部那个文件**当成了框架主二进制。
 
-1. PyInstaller 在 COLLECT 阶段给每个二进制签名，但签的是 **bincache 缓存目录**里的副本：
+完整链条：
+
+1. PyInstaller 只把框架里的二进制按路径搬进产物（`build_main.py::assemble()`）：
 
    ```python
-   cached_name = os.path.join(cache_dir, dest_name)
-   # …/bincache/<hash>/no-entitlements/Python.framework/Versions/3.12/Python
-   osxutils.set_dylib_dependency_paths(cached_name, target_rpath)
-   osxutils.sign_binary(cached_name, codesign_identity, entitlements_file)   # ← 就在这里签
+   src_path = pathlib.PurePath(python_lib)   # /Library/Frameworks/Python.framework/Versions/3.12/Python
+   dst_path = src_path.relative_to(src_path.parent.parent.parent.parent)
+   self.binaries.append((str(dst_path), str(src_path), 'BINARY'))
    ```
 
-   缓存目录里**只有那一个文件**：没有 `Resources/Info.plist`、没有 `_CodeSignature/`。
-2. 对 codesign 来说它就不是一个 framework → 只产出**扁平 Mach-O 签名**（`Info.plist=not bound`）。
-3. 随后 `PyInstaller/building/build_main.py` 的 `collect_files_from_framework_bundles()`
-   又把 `Info.plist` 收进产物、重建 `Versions/Current` 符号链接 →
-   **框架外壳齐全，但签名没有封住它** → 公证判定签名无效。
+2. 「补 `Info.plist` + 重建 `Versions/Current` / `<name>` / `Resources` 三个符号链接」
+   由 `PyInstaller/utils/osx.py::collect_files_from_framework_bundles()` 负责。
+   但该函数里有**多处提前 `continue`**（源路径不满足版本化布局、找不到 `Info.plist` 等），
+   一旦命中，产物里就只剩一个「残缺框架」：
+   `Python.framework/Versions/3.12/Python`（无 `Info.plist`、无符号链接）。
 
-**实测对照**（真实 Developer ID + 官方 CI 同款 framework Python）：
+3. **Tauri 把 sidecar 拷进 `.app` 时会解引用符号链接**。于是 `Python.framework/Python`
+   从「指向 `Versions/Current/Python` 的符号链接」变成**真实文件副本**。
 
-| 签名时机 | `codesign -dv` | `codesign --verify --strict` |
+4. 至此框架已经**不是版本化布局**了。codesign 看到根部有个叫 `Python` 的真实文件，
+   就把它当作主二进制，且找不到任何 `Info.plist`：
+
+   ```
+   Executable=.../Python.framework/Python
+   Identifier=Python            ← 找不到 Info.plist，回退成目录名（正常应为 org.python.python）
+   Format=bundle with Mach-O thin (arm64)
+   Info.plist=not bound         ← 决定性的这一行
+   ```
+
+5. Apple 公证拿到这种签名，无法确认框架主二进制 → 判 `The signature of the binary is invalid.`
+
+**实测对照**（真实 Developer ID + 官方同款 framework Python，本地 1:1 复现）：
+
+| framework 目录形态 | `codesign -dv` | 公证 |
 | --- | --- | --- |
-| 有 `Resources/Info.plist` | `Format=bundle`、`Info.plist entries=12` | ✅ valid on disk |
-| 无 `Info.plist`（= PyInstaller 的缓存目录） | `Format=bundle`、`Info.plist=not bound` | ❌ `code has no resources but signature indicates they must be present` |
-| 在**最终位置**按 framework bundle 重签 | `Format=bundle`、`Info.plist entries=12` | ✅ valid on disk |
+| `Versions/3.12/{Python,Resources/Info.plist}` + `Versions/Current` | `Identifier=org.python.python`、`Info.plist entries=12` | ✅ |
+| 只有 `Versions/3.12/Python`（无 Info.plist、无 Current） | codesign **直接拒绝**：`bundle format unrecognized, invalid, or unsuitable` | ❌ |
+| 根目录有**真实** `Python` 文件、无 Info.plist（= Tauri 解引用后的最终形态） | `Identifier=Python`、`Info.plist=not bound` | ❌ ← **CI 的实际形态** |
 
-> ⚠️ 关键不是「没签名」，而是「**签的形态不对**」。因此「在 bincache 里再补签一次」
-> 或「对那个文件再 `codesign` 一次」都**没有用** —— 必须在最终位置、按 framework
-> bundle 形态签（`codesign --force <Python.framework>`）。
+> ⚠️ 关键结论：**问题不是「没签名」或「签的位置不对」，而是「框架本身缺零件」。**
+> 所以「在 bincache 里补签」「对 `Versions/3.12/Python` 再 `codesign` 一次」全都无效 ——
+> 必须先**把框架结构还原成 Apple 规范形态**，再按 bundle 形态签。
 
 #### Tauri 为什么不管
 
@@ -239,14 +256,16 @@ message: "The signature of the binary is invalid."   (arm64)
 `libpython3.14.dylib`，`_internal/` 里根本没有 `Python.framework`，自然不会踩这个坑。
 CI 用 `actions/setup-python` 的 3.12 是 **framework 构建**，才会出现该目录。
 
-#### `desktop/sign_app_bundle.sh`：由内到外的签名顺序
+#### `desktop/sign_app_bundle.sh`：先还原结构，再由内到外签名
 
 | 顺序 | 对象 | 说明 |
 | --- | --- | --- |
+| ⓪ | **还原 `.framework` 目录结构** | **核心修复点**。缺 `Info.plist` 就补（优先从 `/Library/Frameworks/<同名>.framework/.../Info.plist` 复制，找不到则合成最小 plist）；`Versions/Current`、根目录 `Resources`、根目录 `<name>` 三个符号链接缺失就补建；被解引用成真实目录/硬拷贝的**还原为符号链接** |
 | ① | 所有 Mach-O 文件（`_internal/**/*.so`、`*.dylib`、各种可执行） | 已用目标身份正确签好的**跳过**（CI 上 PyInstaller 已签过，避免数百次 Apple 时间戳请求） |
-| ② | 所有嵌套 bundle（`.framework` / `.xpc` / 内嵌 `.app`），最深优先，**无条件 `--force` 重签** | **核心修复点**：`codesign --force <framework>` 会连带把框架内主二进制重签成 bundle 形态 |
+| ② | 所有嵌套 bundle（`.framework` / `.xpc` / 内嵌 `.app`），最深优先，**无条件 `--force` 重签** | ⓪ 之后框架已是规范形态，`codesign --force <framework>` 即可签出 `Format=bundle` + `Info.plist entries=N` |
 | ③ | 最外层 `.app`（带 `entitlements.plist`） | |
-| ④ | 全量 `codesign --verify --strict` 收口 | 任一失败立即打印文件路径并 `exit 1` —— 把问题从「公证阶段」提前到「构建阶段」 |
+| ④ | 全量 `codesign --verify --strict` 收口 | 任一失败立即打印文件路径并 `exit 1` |
+| ⑤ | **framework 形态硬校验** | `codesign -dv` 必须出现非 0 的 `Info.plist entries=`，否则打印完整目录结构快照并 `exit 1` —— 把问题从「公证阶段」提前到「构建阶段」，不再白跑一次公证 |
 
 > 顺序不能反：若先签 bundle 再动内部文件，bundle 的 `_CodeSignature` 记录会失效。
 
@@ -328,7 +347,7 @@ CI 用 `actions/setup-python` 的 3.12 是 **framework 构建**，才会出现�
 11. **不要用 Tauri 内置 dmg（create-dmg）**：Tauri 的 `dmg` target 最后会用 `osascript` 调用 Finder 做窗口美化，**在无图形会话的 CI runner（以及无 GUI 的 shell 环境）会卡死/报错**，导致 `tauri build` 以退出码 1 失败。这是本项目早期 CI 报错的根因。务必用第 7 步的 `hdiutil` 手动方案替代。
 12. **`hdiutil` 不要写死 `-size`**：CI 的 sidecar 内嵌完整 `Python.framework`（含 stdlib），体积远大于本地构建，写死 `-size 400m` 会 `no space left`；交给 `hdiutil create` 自动计算。挂载后加「应用程序」软链再压缩为 `UDZO`（`hdiutil attach/detach` 是内核级挂载，headless 安全）。
     另：解析 `hdiutil attach` 输出时**不要写 `| sed 1q` / `| head -1`** —— 在 `set -o pipefail` 下这些命令会提前关闭管道、让上游命令收到 SIGPIPE（141），整条管道被判为失败。改为先落盘再 `awk` 解析。
-13. **公证失败的头号原因是「`Python.framework` 签名形态不对」**（而不是「没签名」）：PyInstaller 在 bincache 里签出的是 flat 签名，公证会判 `The signature of the binary is invalid.`。必须由 `sign_app_bundle.sh` 在最终 `.app` 上按 framework bundle 形态重签，详见第 4.5 节。
+13. **公证失败的头号原因是「`Python.framework` 在最终 `.app` 里不是框架」**（而不是「没签名」或「签的位置不对」）：PyInstaller 只搬了 `Versions/<ver>/Python` 这一个文件，而负责补 `Info.plist` + 重建符号链接的 `collect_files_from_framework_bundles()` 有提前 `continue` 的分支；再加上 Tauri 拷贝 sidecar 时会**解引用符号链接**，最终 framework 变成非版本化布局 → codesign 签出 `Info.plist=not bound` → 公证判 `The signature of the binary is invalid.`。必须先由 `sign_app_bundle.sh` **还原框架结构**再签，详见第 4.5 节。
 
 ---
 

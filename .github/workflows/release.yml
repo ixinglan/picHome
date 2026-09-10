@@ -124,10 +124,15 @@ jobs:
           args: '--bundles app'
           includeUpdaterJson: false
 
-      # 对最终 .app 做「由内到外」深度重签：framework 按 bundle 形态签（根治公证报
-      # "The signature of the binary is invalid."），其余 Mach-O 逐个签，最后全量
-      # codesign --verify --strict 收口 —— 把问题从「公证阶段」提前到「构建阶段」。
-      - name: Deep-sign app bundle (nested frameworks)
+      # ① 先还原 .framework 目录结构（补 Info.plist + 重建 Versions/Current、Resources、
+      #    <name> 三个符号链接；被 Tauri 拷成硬拷贝的还原为符号链接）—— 这是根治点：
+      #    PyInstaller 只搬了框架里的二进制，框架残缺会导致 codesign 签出
+      #    `Identifier=<目录名>` + `Info.plist=not bound`，公证必报
+      #    "The signature of the binary is invalid."（path: .../Python.framework/Python）。
+      # ② 再按「由内到外」深度重签，最后做全量 codesign --verify --strict 与
+      #    framework 形态硬校验（必须出现非 0 的 Info.plist entries）——
+      #    把问题从「公证阶段」提前到「构建阶段」，不再白跑一次公证。
+      - name: Deep-sign app bundle (repair frameworks + nested signing)
         working-directory: desktop
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
