@@ -86,29 +86,32 @@ jobs:
           ENT="${{ github.workspace }}/desktop/entitlements.plist"
           echo "[ci] 递归签名 sidecar: $SIDECAR (identity=$IDENTITY)"
 
-          # 2.0) PyInstaller 硬链接处理（关键坑）：
-          #      _internal/Python 与 _internal/Python.framework/Python 通常是同一 inode 的
-          #      硬链接。若分别 codesign 会互相覆盖，导致其中一个签名损坏 -> Apple 公证报
-          #      "The signature of the binary is invalid"。先打破硬链接让二者成为独立文件。
           PY_A="$SIDECAR/_internal/Python"
           PY_B="$SIDECAR/_internal/Python.framework/Python"
-          if [ -f "$PY_A" ] && [ -f "$PY_B" ]; then
-            IA=$(stat -f %i "$PY_A" 2>/dev/null || true)
-            IB=$(stat -f %i "$PY_B" 2>/dev/null || true)
-            if [ -n "$IA" ] && [ "$IA" = "$IB" ]; then
-              echo "[ci] 打破 Python 硬链接 (inode=$IA)"
+          # 诊断：打印两个 Python 文件的 inode 与是否符号链接，便于排查公证 invalid
+          if [ -e "$PY_A" ]; then echo "[ci] PY_A inode=$(stat -f %i "$PY_A" 2>/dev/null) symlink=$([ -L "$PY_A" ] && echo yes || echo no)"; fi
+          if [ -e "$PY_B" ]; then echo "[ci] PY_B inode=$(stat -f %i "$PY_B" 2>/dev/null) symlink=$([ -L "$PY_B" ] && echo yes || echo no)"; fi
+
+          # 2.0) 打破 _internal/Python 与 Python.framework/Python 的 硬链接/符号链接 关系
+          #      PyInstaller 通常把二者做成硬链接或符号链接（指向同一份解释器）。若分别
+          #      codesign 会互相覆盖，或把符号链接当 framework 主二进制 -> Apple 公证报
+          #      "The signature of the binary is invalid"。先让二者成为独立真实文件。
+          if [ -f "$PY_A" ] && [ -e "$PY_B" ]; then
+            if [ -L "$PY_B" ]; then
+              echo "[ci] 打破 Python 符号链接 -> 复制真实副本"
+              rm -f "$PY_B"
+              cp -f "$PY_A" "$PY_B"
+            elif [ "$(stat -f %i "$PY_A" 2>/dev/null)" = "$(stat -f %i "$PY_B" 2>/dev/null)" ]; then
+              echo "[ci] 打破 Python 硬链接 (inode=$(stat -f %i "$PY_A" 2>/dev/null))"
               cp -f "$PY_A" "$PY_B.tmp" && mv -f "$PY_B.tmp" "$PY_B"
+            else
+              echo "[ci] PY_A/PY_B 已是独立文件，无需打破"
             fi
           fi
 
-          # 2.1) 单独用 --deep 签名 Python.framework（正确处理其内部二进制与 Versions 结构）
-          if [ -d "$SIDECAR/_internal/Python.framework" ]; then
-            codesign --force --deep --timestamp --options runtime \
-              -s "$IDENTITY" "$SIDECAR/_internal/Python.framework"
-          fi
-
-          # 2.2) 递归签名其余 Mach-O（排除已用 --deep 处理的 Python.framework 内部）
-          find "$SIDECAR" -type f ! -path "$SIDECAR/_internal/Python.framework/*" -print0 | \
+          # 2.1) 递归签名所有 Mach-O（含 Python.framework 内部真实文件，已无符号链接）
+          #      统一使用 find 逐个签，避免 codesign --deep 对 sym链接 framework 结构报错。
+          find "$SIDECAR" -type f -print0 | \
           while IFS= read -r -d '' f; do
             if file "$f" | grep -q "Mach-O"; then
               codesign --force --timestamp --options runtime -s "$IDENTITY" "$f" || exit 1
