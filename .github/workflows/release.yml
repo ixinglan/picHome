@@ -43,87 +43,42 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller waitress
 
-      # 冻结后端：生成 desktop/src-tauri/bin/pichome-server（Tauri sidecar，按当前架构原生编译）
-      - name: Freeze backend -> src-tauri/bin/pichome-server
-        run: bash desktop/build_backend.sh
-
-      # 关键修复：配置了 Apple 证书时 tauri-action 会自动「签名 + 公证」。
-      # 但 Tauri 自带的 codesign 只签 .app 主二进制，不会递归签名
-      # Resources/pichome-server 这个 PyInstaller 第三方 bundle（其内部 .so/.dylib/
-      # Python 解释器都未签名）。Apple 公证会扫描到这些未签名二进制并直接拒绝
-      # （"The binary is not signed with a valid Developer ID certificate"），导致
-      # tauri build 退出码 1。
-      # 因此在 tauri build 之前，先把整个 sidecar 目录用 Developer ID 证书 + 安全时间戳
-      # 递归签名（主可执行额外附加 PyInstaller 需要的 entitlements），公证即可通过。
-      # 未配置证书（APPLE_SIGNING_IDENTITY 为空）时整段跳过，仅产出未签名 app。
-      - name: Codesign PyInstaller sidecar (for notarization)
+      # 导入 Apple 证书到临时 keychain（CI 专用）。这一步必须在「冻结后端」之前，
+      # 因为 PyInstaller 要在冻结阶段用证书递归签名 sidecar；也必须保持到 tauri-action
+      # 步骤（Tauri 自动 codesign + notarize 时仍需从 keychain 取证书）。
+      # 未配置 APPLE_SIGNING_IDENTITY 时整段跳过（仅出未签名 app）。
+      - name: Setup macOS keychain (import Apple cert)
         env:
           IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           CERT: ${{ secrets.APPLE_CERTIFICATE }}
           CERT_PW: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        working-directory: desktop/src-tauri/bin
         run: |
           set -euo pipefail
-          # 仅当配置了 Apple 签名身份时才签名；否则跳过（仅出未签名 app）。
-          # 注意：GitHub 不允许在 step 级 if 里引用 secrets（if 求值早于 secret 注入），
-          # 因此证书是否配置的判断放在脚本内部。
           if [ -z "$IDENTITY" ]; then
-            echo "[ci] 未配置 APPLE_SIGNING_IDENTITY，跳过 sidecar 签名（仅出未签名 app）"
+            echo "[ci] 未配置 APPLE_SIGNING_IDENTITY，跳过 keychain 配置（仅出未签名 app）"
             exit 0
           fi
-          # 1) 导入证书到临时 keychain（CI 专用，不污染本机 login keychain）
           KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
           KPW=$(openssl rand -base64 12)
           security create-keychain -p "$KPW" "$KEYCHAIN"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"   # 6h 内不自动锁，覆盖整个 job
           security unlock-keychain -p "$KPW" "$KEYCHAIN"
           echo "$CERT" | base64 -D > /tmp/cert.p12
           security import /tmp/cert.p12 -P "$CERT_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN"
           security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KPW" "$KEYCHAIN"
-          # 2) 递归签名 sidecar 内所有 Mach-O（.so/.dylib/Python 解释器等）
-          SIDECAR="pichome-server"
-          ENT="${{ github.workspace }}/desktop/entitlements.plist"
-          echo "[ci] 递归签名 sidecar: $SIDECAR (identity=$IDENTITY)"
+          rm -f /tmp/cert.p12
+          echo "[ci] keychain 就绪：$KEYCHAIN"
 
-          PY_A="$SIDECAR/_internal/Python"
-          PY_B="$SIDECAR/_internal/Python.framework/Python"
-          # 诊断：打印两个 Python 文件的 inode 与是否符号链接，便于排查公证 invalid
-          if [ -e "$PY_A" ]; then echo "[ci] PY_A inode=$(stat -f %i "$PY_A" 2>/dev/null) symlink=$([ -L "$PY_A" ] && echo yes || echo no)"; fi
-          if [ -e "$PY_B" ]; then echo "[ci] PY_B inode=$(stat -f %i "$PY_B" 2>/dev/null) symlink=$([ -L "$PY_B" ] && echo yes || echo no)"; fi
-
-          # 2.0) 打破 _internal/Python 与 Python.framework/Python 的 硬链接/符号链接 关系
-          #      PyInstaller 通常把二者做成硬链接或符号链接（指向同一份解释器）。若分别
-          #      codesign 会互相覆盖，或把符号链接当 framework 主二进制 -> Apple 公证报
-          #      "The signature of the binary is invalid"。先让二者成为独立真实文件。
-          if [ -f "$PY_A" ] && [ -e "$PY_B" ]; then
-            if [ -L "$PY_B" ]; then
-              echo "[ci] 打破 Python 符号链接 -> 复制真实副本"
-              rm -f "$PY_B"
-              cp -f "$PY_A" "$PY_B"
-            elif [ "$(stat -f %i "$PY_A" 2>/dev/null)" = "$(stat -f %i "$PY_B" 2>/dev/null)" ]; then
-              echo "[ci] 打破 Python 硬链接 (inode=$(stat -f %i "$PY_A" 2>/dev/null))"
-              cp -f "$PY_A" "$PY_B.tmp" && mv -f "$PY_B.tmp" "$PY_B"
-            else
-              echo "[ci] PY_A/PY_B 已是独立文件，无需打破"
-            fi
-          fi
-
-          # 2.1) 递归签名所有 Mach-O（含 Python.framework 内部真实文件，已无符号链接）
-          #      统一使用 find 逐个签，避免 codesign --deep 对 sym链接 framework 结构报错。
-          find "$SIDECAR" -type f -print0 | \
-          while IFS= read -r -d '' f; do
-            if file "$f" | grep -q "Mach-O"; then
-              codesign --force --timestamp --options runtime -s "$IDENTITY" "$f" || exit 1
-            fi
-          done
-
-          # 3) 主可执行带 entitlements 最后签（确保晚于其依赖）
-          codesign --force --timestamp --options runtime \
-            --entitlements "$ENT" -s "$IDENTITY" "$SIDECAR/pichome-server"
-          # 4) 校验
-          codesign --verify --deep --strict "$SIDECAR/pichome-server" \
-            && echo "[ci] sidecar codesign OK"
+      # 冻结后端：生成 desktop/src-tauri/bin/pichome-server（Tauri sidecar，按当前架构原生编译）
+      # 配置了 APPLE_SIGNING_IDENTITY 时，PyInstaller 在冻结阶段就递归签名整个 sidecar
+      # （主 EXE 带 Python entitlements、_internal 全部签好），为后续 tauri notarize 铺路。
+      # 注意：之前的失败根因是「递归 codesign 放在 tauri-action 之后」——而 Tauri 的
+      # notarize 在 tauri build 内部就跑完了，那时 sidecar 还裸着，必然 invalid。
+      - name: Freeze backend -> src-tauri/bin/pichome-server
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: bash desktop/build_backend.sh
 
       - name: Setup Node.js
         uses: actions/setup-node@v5

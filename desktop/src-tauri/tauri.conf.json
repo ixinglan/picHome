@@ -38,7 +38,9 @@
       "bin/pichome-server": "pichome-server"
     },
     "macOS": {
-      "minimumSystemVersion": "10.15"
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "${env.APPLE_SIGNING_IDENTITY}",
+      "entitlements": "../entitlements.plist"
     }
   }
 }

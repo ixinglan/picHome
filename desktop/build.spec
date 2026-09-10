@@ -78,8 +78,19 @@ exe = EXE(
     upx=False,
     console=True,
     target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
+    # 配置了 APPLE_SIGNING_IDENTITY 时（CI 中），由 PyInstaller 在冻结阶段递归签名
+    # 整个 sidecar：主可执行 pichome-server 附带 Python 运行时所需的 entitlements
+    # （allow-jit / allow-unsigned-executable-memory / disable-library-validation），
+    # _internal 下所有 .so/.dylib/Python 解释器用 runtime option 签名。
+    # 本地开发未配置证书时两者为 None，PyInstaller 不签名（仅出未签名产物）。
+    # 关键：必须在 tauri build / notarize 之前签好，否则 Tauri 的 notarize 会先跑、扫到
+    # 未签名的 _internal 直接判 invalid（这正是之前 v0.1.1~v0.1.4 反复失败的根因）。
+    codesign_identity=os.environ.get("APPLE_SIGNING_IDENTITY") or None,
+    entitlements_file=(
+        os.path.join(SPECPATH, "entitlements.plist")
+        if os.environ.get("APPLE_SIGNING_IDENTITY")
+        else None
+    ),
 )
 
 coll = COLLECT(
