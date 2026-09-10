@@ -151,33 +151,35 @@ Tauri v2 的 `resources` 是一个 **`源路径 → 目标路径`** 的 map（�
 | `APPLE_PASSWORD` | App 专用密码 |
 | `APPLE_TEAM_ID` | 开发者团队 ID |
 
-### 4.5 公证（notarize）必须先递归签名 sidecar
+### 4.5 公证（notarize）必须在「冻结阶段」就递归签名 sidecar
 
-配置了第 4.4 节的 6 个 Secrets 后，tauri-action 会自动走「签名 + 公证」。但
-**Tauri 自带的 codesign 只签 `.app` 主二进制，不会递归签名
-`Resources/pichome-server` 这个 PyInstaller 冻结出的第三方 bundle**——它内部的
-`.so` / `.dylib` / `Python` 解释器仍是未签名状态。Apple 公证会扫描整个 `.app`，
-发现这些未签名二进制会直接判定 `Invalid` 并失败，最终 `tauri build` 退出码 1，报错
-`failed to notarize app: Finished with status Invalid`。
+配置了第 4.4 节的 6 个 Secrets 后，`tauri-action` 会在 `tauri build` 命令**内部**自动走「codesign + notarize」。
+**关键事实：Tauri 的 notarize 是在 `tauri build` 里、打包 `.app` 之后立即执行的**——它把整个
+`.app`（含 PyInstaller 的 `Resources/pichome-server`）上传给 Apple 校验签名。因此**任何写在
+`tauri-action` 之后才做的 codesign 都为时已晚**：notarize 早已跑完，sidecar 内部仍是裸二进制，
+Apple 直接判 `Invalid`，最终 `tauri build` 退出码 1，报错 `failed to notarize app: Finished with status Invalid`。
 
-**修复**：在 `tauri build` 之前，先用 `codesign --force --timestamp --options runtime
--s "$APPLE_SIGNING_IDENTITY"` 递归给整个 `bin/pichome-server` 目录签名（主可执行再附加
-`desktop/entitlements.plist`），再交给 Tauri 打包。该逻辑已写入 `release.yml` 的
-「Codesign PyInstaller sidecar」步骤，并在 `APPLE_SIGNING_IDENTITY` 为空时自动跳过。
+> 这正是 v0.1.1 ~ v0.1.4 反复失败的根因：当时把递归 codesign 写在 `tauri-action` 之后，时序错误。
 
-**⚠️ 关键坑：PyInstaller 的 `Python` 硬链接会让公证 `Invalid`**
-即便递归签名了所有 `.so`，Apple 公证仍可能报
-`"The signature of the binary is invalid"`，且精确指向
-`Resources/pichome-server/_internal/Python` 与
-`Resources/pichome-server/_internal/Python.framework/Python` 两个文件。原因是 PyInstaller
-把这两个文件做成**同一个 inode 的硬链接**，逐文件 `codesign` 会互相覆盖、使其中一个签名损坏。
-正确做法（已写入 `release.yml`）：
-1. 签名前先 `cp` 打破 `_internal/Python` 与 `Python.framework/Python` 的硬链接，让二者独立；
-2. 用 `codesign --deep` 整体签名 `Python.framework`（处理其内部 `Versions` 结构与二进制）；
-3. 其余 `.so` / 独立 `Python` / 主可执行再逐个（或带 entitlements）签名。
+**修复（在冻结阶段就签好，而非 tauri-action 之后）**：
+1. `desktop/build.spec` 的 `EXE` 设置
+   `codesign_identity=os.environ.get("APPLE_SIGNING_IDENTITY") or None` 与 `entitlements_file`
+   （仅当配置了证书时生效）。PyInstaller 在冻结时即递归签 `_internal` 下所有 `.so` / `.dylib` /
+   `Python` 解释器（runtime option），并对主可执行 `pichome-server` 附加 `desktop/entitlements.plist`
+   （allow-jit / allow-unsigned-executable-memory / disable-library-validation）。
+   PyInstaller 自带的 codesign **本身就能正确处理 `_internal/Python` 与 `Python.framework/Python`
+   的硬链接/符号链接**（只签真实文件、跳过 symlink），不会踩「同 inode 互覆盖」的坑。
+2. `desktop/build_backend.sh` 在 PyInstaller 之后、拷贝之前，再用 `find` 兜底补签一遍所有 Mach-O
+   （跳过主 EXE，最后单独带 entitlements 重签主 EXE 确保放行项保留），杜绝个别漏签。
+3. `desktop/src-tauri/tauri.conf.json` 的 `bundle.macOS` 配置
+   `signingIdentity: "${env.APPLE_SIGNING_IDENTITY}"` 与 `entitlements: "../entitlements.plist"`。
+   这样 Tauri 对 externalBin（sidecar 主 EXE）重签时也带上 Python 的 entitlements，避免 Gatekeeper
+   在运行时因缺 `allow-jit` 等直接杀掉 Python 进程。
+4. `release.yml` 把「导入 Apple 证书到临时 keychain」提前到 `Freeze backend` 步骤之前（PyInstaller
+   冻结时需要证书；该 keychain 在整个 job 内保持解锁，供后续 tauri-action 自动 codesign+notarize 复用）。
 
-> 本地未配置证书时无需此步：本地构建出未签名 `.app`，macOS 对「本机开发者自己构建的
-> app」不强制公证，可直接运行调试。
+> 本地未配置证书时：`APPLE_SIGNING_IDENTITY` 为空，`build.spec` / `build_backend.sh` 自动跳过签名，
+> 仅出未签名 `.app`，macOS 对「本机开发者自己构建的 app」不强制公证，可直接运行调试。
 
 ---
 
