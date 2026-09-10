@@ -16,3 +16,18 @@ media_data
 .vscode/
 .DS_Store
 .workbuddy
+
+# ===== 以下内容与 Web(Django) 镜像无关，必须排除，否则 COPY . . 会把它们打进镜像 =====
+# desktop/ 是 Tauri 桌面端（含 target/ 2G+、node_modules/），Web 镜像完全不需要，
+# 这正是镜像臃肿的根因。
+desktop/
+# 前端/IDE/构建缓存等本地产物
+build/
+dist/
+.idea/
+docs/
+skills/
+node_modules/
+# 根目录文档与 CLI 脚本无需进运行镜像
+*.md
+pichome.py

@@ -151,11 +151,12 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // 点击关闭按钮：隐藏窗口（不杀后端、不退出进程），应用继续留在程序坞和菜单栏。
-            // 想彻底退出请用菜单栏图标右键的「退出」。
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let _ = window.hide();
-                api.prevent_close();
+            // 点击关闭按钮 = 彻底退出 app：先回收后端 sidecar（避免端口 14567 残留孤儿进程），
+            // 再退出整个应用。符合「关窗即退出」的直觉，sidecar 不会变成孤儿进程继续运行。
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                let app = window.app_handle();
+                kill_backend(&app);
+                app.exit(0);
             }
         })
         .build(tauri::generate_context!())
