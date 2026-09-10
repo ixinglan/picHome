@@ -169,8 +169,9 @@ Apple 直接判 `Invalid`，最终 `tauri build` 退出码 1，报错 `failed to
    （allow-jit / allow-unsigned-executable-memory / disable-library-validation）。
    PyInstaller 自带的 codesign **本身就能正确处理 `_internal/Python` 与 `Python.framework/Python`
    的硬链接/符号链接**（只签真实文件、跳过 symlink），不会踩「同 inode 互覆盖」的坑。
-2. `desktop/build_backend.sh` 在 PyInstaller 之后、拷贝之前，再用 `find` 兜底补签一遍所有 Mach-O
-   （跳过主 EXE，最后单独带 entitlements 重签主 EXE 确保放行项保留），杜绝个别漏签。
+2. `desktop/build_backend.sh` **不再**做补签：签名 100% 由 PyInstaller 冻结阶段完成，
+   脚本里不引用任何 codesign 变量（`set -u` 下不会因变量未定义而 `exit 1`）。PyInstaller 的
+   `codesign_identity` 已递归签全，重复 `find` 补签既冗余又有副作用，故移除。
 3. `desktop/src-tauri/tauri.conf.json` 的 `bundle.macOS` 配置
    `signingIdentity: "${env.APPLE_SIGNING_IDENTITY}"` 与 `entitlements: "../entitlements.plist"`。
    这样 Tauri 对 externalBin（sidecar 主 EXE）重签时也带上 Python 的 entitlements，避免 Gatekeeper
