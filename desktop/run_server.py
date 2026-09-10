@@ -13,6 +13,7 @@ Tauri 壳会 spawn 本可执行文件作为 sidecar，再用 WebView 加载 http
 """
 import os
 import sys
+import threading
 
 # 桌面模式标记必须在导入 Django settings 之前设置
 os.environ.setdefault("PICHOME_DESKTOP", "1")
@@ -50,11 +51,30 @@ def _bootstrap():
     call_command("collectstatic", "--noinput", verbosity=0)
 
 
+def _watch_stdin():
+    """监听 stdin：宿主（Tauri app）退出后，spawn 时建立的 stdin 管道写端关闭，
+    这里读到 EOF 即主动终止整个进程（含 waitress 主线程），确保端口 14567 不残留。
+    这是 sidecar 生命周期跟随宿主的兜底机制，覆盖「app 被强杀 / kill 回调未触发」
+    等所有异常退出场景，不依赖 Tauri 退出事件回调。"""
+    try:
+        # 阻塞读，直到管道写端全部关闭（读到 EOF 返回 b''）
+        while sys.stdin.read(4096):
+            pass
+    except Exception:
+        pass
+    finally:
+        # EOF 或读异常 → 立即退出整个进程
+        os._exit(0)
+
+
 def main():
     _bootstrap()
 
     from pichome_web.wsgi import application
     from waitress import serve
+
+    # 兜底：宿主退出 → stdin EOF → 自动退出（daemon 线程不阻塞 waitress）
+    threading.Thread(target=_watch_stdin, daemon=True).start()
 
     port = int(os.getenv("PICHOME_DESKTOP_PORT", "14567"))
     print(f"[pichome] 服务已启动：http://127.0.0.1:{port}")

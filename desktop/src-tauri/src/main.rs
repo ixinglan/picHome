@@ -2,7 +2,7 @@
 
 use std::os::unix::process::CommandExt; // 提供 process_group(0)，让 sidecar 成为独立进程组
 use std::path::PathBuf;
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 
 use tauri::Manager;
@@ -27,9 +27,11 @@ fn spawn_backend(app: &tauri::AppHandle) -> std::io::Result<Child> {
     Command::new(&sidecar_exe)
         .env("PICHOME_DESKTOP", "1")
         .env("PICHOME_DESKTOP_PORT", "14567")
-        // 让 sidecar 成为新进程组的组长（pgid = 自身 pid）。PyInstaller bootloader
-        // 会 fork 出 Python 子进程真正监听 14567，二者同属该进程组，退出时 killpg
-        // 即可整组回收，避免只杀父进程留下孤儿子进程、端口 14567 残留。
+        // stdin 设成管道：sidecar 用它监听「宿主 app 是否还活着」。app 退出（含被强杀）
+        // 时写端关闭，sidecar 读到 EOF 即自动退出，端口 14567 绝不残留。这是生命周期
+        // 兜底，不依赖 Tauri 退出事件回调是否触发。
+        .stdin(Stdio::piped())
+        // 独立进程组：退出时 killpg 整组回收（PyInstaller 即使 fork 也能一并杀掉）。
         .process_group(0)
         .spawn()
 }
@@ -39,7 +41,14 @@ fn kill_backend(app: &tauri::AppHandle) {
     if let Some(state) = app.try_state::<AppState>() {
         if let Ok(mut guard) = state.sidecar.lock() {
             if let Some(mut child) = guard.take() {
-                let _ = child.kill();
+                let pid = child.id() as i32;
+                // 先杀整个进程组（含 PyInstaller 可能 fork 出的子进程），再 wait 回收。
+                // 即便这里失败，stdin EOF 兜底（run_server.py 监听 stdin 关闭）也会让
+                // sidecar 自动退出，端口 14567 不残留。
+                unsafe {
+                    libc::killpg(pid, libc::SIGKILL);
+                }
+                let _ = child.wait();
             }
         }
     }
