@@ -165,6 +165,17 @@ Tauri v2 的 `resources` 是一个 **`源路径 → 目标路径`** 的 map（�
 `desktop/entitlements.plist`），再交给 Tauri 打包。该逻辑已写入 `release.yml` 的
 「Codesign PyInstaller sidecar」步骤，并在 `APPLE_SIGNING_IDENTITY` 为空时自动跳过。
 
+**⚠️ 关键坑：PyInstaller 的 `Python` 硬链接会让公证 `Invalid`**
+即便递归签名了所有 `.so`，Apple 公证仍可能报
+`"The signature of the binary is invalid"`，且精确指向
+`Resources/pichome-server/_internal/Python` 与
+`Resources/pichome-server/_internal/Python.framework/Python` 两个文件。原因是 PyInstaller
+把这两个文件做成**同一个 inode 的硬链接**，逐文件 `codesign` 会互相覆盖、使其中一个签名损坏。
+正确做法（已写入 `release.yml`）：
+1. 签名前先 `cp` 打破 `_internal/Python` 与 `Python.framework/Python` 的硬链接，让二者独立；
+2. 用 `codesign --deep` 整体签名 `Python.framework`（处理其内部 `Versions` 结构与二进制）；
+3. 其余 `.so` / 独立 `Python` / 主可执行再逐个（或带 entitlements）签名。
+
 > 本地未配置证书时无需此步：本地构建出未签名 `.app`，macOS 对「本机开发者自己构建的
 > app」不强制公证，可直接运行调试。
 
