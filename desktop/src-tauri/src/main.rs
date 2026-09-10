@@ -151,12 +151,13 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // 点击关闭按钮 = 彻底退出 app：先回收后端 sidecar（避免端口 14567 残留孤儿进程），
-            // 再退出整个应用。符合「关窗即退出」的直觉，sidecar 不会变成孤儿进程继续运行。
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                let app = window.app_handle();
-                kill_backend(&app);
-                app.exit(0);
+            // 点击关闭按钮：仅隐藏窗口（不杀 sidecar、不退出进程），应用继续留在
+            // 程序坞 / 菜单栏，后端仍在 14567 端口运行。想彻底退出请用菜单栏图标
+            // 右键「退出」或 Cmd+Q——这两条路径会先 kill_backend 再退出（见
+            // on_menu_event 的 "quit" 与 RunEvent::ExitRequested）。
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
             }
         })
         .build(tauri::generate_context!())
