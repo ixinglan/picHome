@@ -223,10 +223,61 @@ jobs:
       - name: Create GitHub Release (draft)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 用它判断本次产物是否签名+公证，从而生成对应的 Release 说明
+          # （用 env 传入而不是写进 run: 里，避免 secret 出现在脚本文本中）
+          SIGN_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
-          gh release create "${{ github.ref_name }}" --draft \
-            --title "PicHome ${{ github.ref_name }}" \
-            --notes "macOS 桌面端安装包（Apple Silicon / Intel 双架构）。
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          VER="${TAG#v}"
 
-          未签名版本首次打开可能提示「无法验证开发者」，右键 -> 打开 即可。" \
-            artifacts/*/*.dmg
+          # ⚠️ 本 job 没有 actions/checkout，工作区不是一个 git 仓库。
+          # gh 默认会调用 git 去推断仓库，于是直接报：
+          #   failed to run git: fatal: not a git repository (or any of the parent directories): .git
+          # 所以这里所有 gh 命令都必须显式带上 --repo。
+          REPO="$GITHUB_REPOSITORY"
+
+          # 收集两个架构的 dmg。用 find 而不是固定深度的 glob（artifacts/*/*.dmg），
+          # 这样即使 download-artifact 的目录层级变化也不会漏；
+          # 注意 runner 上是 bash 3.2，没有 mapfile，只能用 while read 填充数组。
+          dmgs=()
+          while IFS= read -r f; do
+            dmgs+=("$f")
+          done < <(find artifacts -type f -name '*.dmg' | sort)
+          if [ ${#dmgs[@]} -eq 0 ]; then
+            echo "::error::没有找到任何 dmg 产物。artifacts 实际内容："
+            find artifacts -type f | sed 's/^/  /'
+            exit 1
+          fi
+          echo "[release] 待上传 ${#dmgs[@]} 个文件："
+          printf '  %s\n' "${dmgs[@]}"
+
+          NOTES="macOS 桌面端安装包（Apple Silicon / Intel 双架构）。
+
+          · Apple Silicon（M 系列）：PicHome_${VER}_aarch64.dmg
+          · Intel：PicHome_${VER}_x64.dmg"
+
+          # 说明文案跟着「本次是否真的签名/公证」走，避免像以前那样写死「未签名」
+          if [ -n "${SIGN_IDENTITY:-}" ]; then
+            NOTES="$NOTES
+
+          已用 Developer ID 签名并通过 Apple 公证（notarized + stapled），首次打开无需右键绕过。"
+          else
+            NOTES="$NOTES
+
+          本次构建未签名。首次打开若提示「无法验证开发者」，右键 -> 打开 即可。"
+          fi
+
+          # 幂等：重跑时若 Release 已存在，改为补传/覆盖产物，不再整体失败
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "[release] Release $TAG 已存在 → 补传并覆盖同名产物"
+            gh release upload "$TAG" "${dmgs[@]}" --repo "$REPO" --clobber
+            echo "[release] ✅ 产物已更新"
+          else
+            gh release create "$TAG" "${dmgs[@]}" \
+              --repo "$REPO" \
+              --draft \
+              --title "PicHome $TAG" \
+              --notes "$NOTES"
+            echo "[release] ✅ draft Release 已创建（到 Releases 页面确认后手动 Publish）"
+          fi

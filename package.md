@@ -120,7 +120,15 @@ desktop/src-tauri/target/release/bundle/dmg/PicHome_<版本>_<架构>.dmg
 | 11 | `upload-artifact@v4` | 上传 `src-tauri/target/release/bundle/dmg/*.dmg` |
 
 两个架构都成功后，`release` 任务把两份 dmg 合并进**同一个 draft GitHub Release**
-（draft 需到 Releases 页手动点「Publish release」才会公开）。
+（draft 需到 Releases 页手动点「Publish release」才会公开）：
+
+| 步骤 | 说明 |
+| --- | --- |
+| `download-artifact@v4`（`path: artifacts`） | 产物落到 `artifacts/<artifact 名>/*.dmg`，即 `artifacts/dmg-apple-silicon/`、`artifacts/dmg-intel/` |
+| `gh release create`（draft） | ⚠️ **该 job 没有 `actions/checkout`，工作区不是 git 仓库**，所以每条 `gh` 命令都必须显式带 `--repo "$GITHUB_REPOSITORY"`；否则会报 `failed to run git: fatal: not a git repository`。已做幂等：Release 已存在时改用 `gh release upload --clobber` 补传覆盖 |
+
+> Release 正文会**按是否配置 `APPLE_SIGNING_IDENTITY` 自动切换**：有证书就写「已签名并通过
+> Apple 公证」，没有就写「未签名，需右键打开」—— 避免文案与产物实际状态不符。
 
 ---
 
@@ -385,6 +393,7 @@ message: "The signature of the binary is invalid."   (arm64)
 | `notarytool` 返回 `Invalid`，issue 指向 `…/_internal/Python.framework/…` 的 `The signature of the binary is invalid.` | framework 结构残缺（缺 `Info.plist` / 符号链接被解引用）→ 签出 `Info.plist=not bound` | 见 4.5：`sign_app_bundle.sh` 的步骤 ⓪ 先还原结构再重签；步骤 ⑤ 会提前拦截 |
 | `notarytool` 认证失败（`401` / `Invalid credentials`） | `APPLE_PASSWORD` 不是 **App 专用密码** | 到 Apple ID 后台生成 App 专用密码并更新 Secret |
 | Intel 腿 job 起不来 / runner 标签不可用 | `macos-13` 已于 2025-12-04 退役 | 见第 3 节：改用 `macos-15-intel` |
+| `Create Release (both archs)` 报 `failed to run git: fatal: not a git repository (or any of the parent directories): .git` | `release` job 没有 `actions/checkout`，工作区不是 git 仓库，而 `gh` 默认要调 `git` 推断仓库 | 给所有 `gh` 命令加 `--repo "$GITHUB_REPOSITORY"`（或在该 job 里加 `actions/checkout`）。**两个 build 步骤此前已全绿，说明签名/公证链路是通的**，只差这一步 |
 | 打开 dmg 报「无法验证开发者」 | 未配置签名 Secrets（未走公证流程） | 属预期；配置 4.4 的 Secrets，或右键 → 打开 |
 | 后端起不来 / 白屏 | `frontendDist` 占位缺失，或 14567 端口被残留进程占用 | 确认 `dist/index.html` 存在；`lsof -i:14567` 查残留进程 |
 
