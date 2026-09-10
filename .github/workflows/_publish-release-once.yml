@@ -1,0 +1,79 @@
+name: Publish Release from existing run (one-off)
+
+# ⚠️ 临时工作流：用途是「复用某次已成功的构建产物，补建 GitHub Release」，
+# 不重新编译。用于本仓库 release 步骤曾因 workflow bug 失败的场景。
+# 用完即可删除（它不是发布链路的一部分，常规发布仍由 release.yml 自动完成）。
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "来源 workflow run ID（产物所在的那次运行）"
+        required: true
+      tag:
+        description: "Release tag（例如 v1.0.0）"
+        required: true
+
+permissions:
+  contents: write   # 建 release / 上传产物
+  actions: read     # 读取另一次运行的 artifacts
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts from source run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: dmg-*
+          path: artifacts
+
+      - name: Inspect downloaded artifacts
+        run: find artifacts -type f | sed 's/^/  /'
+
+      - name: Create or update draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          VER="${TAG#v}"
+          REPO="$GITHUB_REPOSITORY"
+
+          # runner 是 bash，但没有 mapfile 也不依赖（ubuntu 有，这里保持写法一致）
+          dmgs=()
+          while IFS= read -r f; do
+            dmgs+=("$f")
+          done < <(find artifacts -type f -name '*.dmg' | sort)
+
+          if [ ${#dmgs[@]} -eq 0 ]; then
+            echo "::error::没有找到任何 dmg 产物。artifacts 实际内容："
+            find artifacts -type f | sed 's/^/  /' || true
+            exit 1
+          fi
+          echo "[release] 待上传 ${#dmgs[@]} 个文件："
+          printf '  %s\n' "${dmgs[@]}"
+
+          cat > /tmp/notes.md <<EOF
+          macOS 桌面端安装包（Apple Silicon / Intel 双架构）。
+
+          · Apple Silicon（M 系列）：PicHome_${VER}_aarch64.dmg
+          · Intel：PicHome_${VER}_x64.dmg
+
+          已用 Developer ID 签名并通过 Apple 公证（notarized + stapled），首次打开无需右键绕过。
+          EOF
+
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "[release] Release $TAG 已存在 → 补传并覆盖同名产物"
+            gh release upload "$TAG" "${dmgs[@]}" --repo "$REPO" --clobber
+            echo "[release] ✅ 产物已更新"
+          else
+            gh release create "$TAG" "${dmgs[@]}" \
+              --repo "$REPO" \
+              --draft \
+              --title "PicHome $TAG" \
+              --notes-file /tmp/notes.md
+            echo "[release] ✅ draft Release 已创建（到 Releases 页面确认后手动 Publish）"
+          fi
