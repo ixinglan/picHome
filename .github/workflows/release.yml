@@ -47,6 +47,50 @@ jobs:
       - name: Freeze backend -> src-tauri/bin/pichome-server
         run: bash desktop/build_backend.sh
 
+      # 关键修复：配置了 Apple 证书时 tauri-action 会自动「签名 + 公证」。
+      # 但 Tauri 自带的 codesign 只签 .app 主二进制，不会递归签名
+      # Resources/pichome-server 这个 PyInstaller 第三方 bundle（其内部 .so/.dylib/
+      # Python 解释器都未签名）。Apple 公证会扫描到这些未签名二进制并直接拒绝
+      # （"The binary is not signed with a valid Developer ID certificate"），导致
+      # tauri build 退出码 1。
+      # 因此在 tauri build 之前，先把整个 sidecar 目录用 Developer ID 证书 + 安全时间戳
+      # 递归签名（主可执行额外附加 PyInstaller 需要的 entitlements），公证即可通过。
+      # 未配置证书（APPLE_SIGNING_IDENTITY 为空）时整段跳过，仅产出未签名 app。
+      - name: Codesign PyInstaller sidecar (for notarization)
+        if: ${{ secrets.APPLE_SIGNING_IDENTITY != '' }}
+        env:
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PW: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        working-directory: desktop/src-tauri/bin
+        run: |
+          set -euo pipefail
+          # 1) 导入证书到临时 keychain（CI 专用，不污染本机 login keychain）
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KPW=$(openssl rand -base64 12)
+          security create-keychain -p "$KPW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KPW" "$KEYCHAIN"
+          echo "$CERT" | base64 -D > /tmp/cert.p12
+          security import /tmp/cert.p12 -P "$CERT_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KPW" "$KEYCHAIN"
+          # 2) 递归签名 sidecar 内所有 Mach-O（.so/.dylib/Python 解释器等）
+          SIDECAR="pichome-server"
+          ENT="${{ github.workspace }}/desktop/entitlements.plist"
+          echo "[ci] 递归签名 sidecar: $SIDECAR (identity=$IDENTITY)"
+          find "$SIDECAR" -type f -print0 | while IFS= read -r -d '' f; do
+            if file "$f" | grep -q "Mach-O"; then
+              codesign --force --timestamp --options runtime -s "$IDENTITY" "$f"
+            fi
+          done
+          # 3) 主可执行带 entitlements 最后签（确保晚于其依赖）
+          codesign --force --timestamp --options runtime \
+            --entitlements "$ENT" -s "$IDENTITY" "$SIDECAR/pichome-server"
+          # 4) 校验
+          codesign --verify --deep --strict "$SIDECAR/pichome-server" \
+            && echo "[ci] sidecar codesign OK"
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:

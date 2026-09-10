@@ -151,6 +151,23 @@ Tauri v2 的 `resources` 是一个 **`源路径 → 目标路径`** 的 map（�
 | `APPLE_PASSWORD` | App 专用密码 |
 | `APPLE_TEAM_ID` | 开发者团队 ID |
 
+### 4.5 公证（notarize）必须先递归签名 sidecar
+
+配置了第 4.4 节的 6 个 Secrets 后，tauri-action 会自动走「签名 + 公证」。但
+**Tauri 自带的 codesign 只签 `.app` 主二进制，不会递归签名
+`Resources/pichome-server` 这个 PyInstaller 冻结出的第三方 bundle**——它内部的
+`.so` / `.dylib` / `Python` 解释器仍是未签名状态。Apple 公证会扫描整个 `.app`，
+发现这些未签名二进制会直接判定 `Invalid` 并失败，最终 `tauri build` 退出码 1，报错
+`failed to notarize app: Finished with status Invalid`。
+
+**修复**：在 `tauri build` 之前，先用 `codesign --force --timestamp --options runtime
+-s "$APPLE_SIGNING_IDENTITY"` 递归给整个 `bin/pichome-server` 目录签名（主可执行再附加
+`desktop/entitlements.plist`），再交给 Tauri 打包。该逻辑已写入 `release.yml` 的
+「Codesign PyInstaller sidecar」步骤，并在 `APPLE_SIGNING_IDENTITY` 为空时自动跳过。
+
+> 本地未配置证书时无需此步：本地构建出未签名 `.app`，macOS 对「本机开发者自己构建的
+> app」不强制公证，可直接运行调试。
+
 ---
 
 ## 5. 后端冻结要点（`desktop/build.spec` + `build_backend.sh`）
@@ -178,6 +195,7 @@ Tauri v2 的 `resources` 是一个 **`源路径 → 目标路径`** 的 map（�
 10. **`.app` 与 `.dmg` 分开产出**：CI 中 Tauri **只打 `.app`**（`--bundles app`），`.dmg` 由后续 `hdiutil` 步骤生成；上传 artifact 只取 `bundle/dmg/*.dmg`。
 11. **不要用 Tauri 内置 dmg（create-dmg）**：Tauri 的 `dmg` target 最后会用 `osascript` 调用 Finder 做窗口美化，**在无图形会话的 CI runner（以及无 GUI 的 shell 环境）会卡死/报错**，导致 `tauri build` 以退出码 1 失败。这是本项目早期 CI 报错的根因。务必用第 7 步的 `hdiutil` 手动方案替代。
 12. **`hdiutil` 方案需 `-size` 留足空间**：临时 `UDRW` 镜像用 `-size 400m` 留余量（实际 `.app` 约 88M），挂载后加「应用程序」软链再压缩为 `UDZO`。`hdiutil attach/detach` 是内核级挂载，headless 安全。
+13. **公证（notarize）依赖 sidecar 已被递归签名**：这是「配了 Apple 证书却仍 `tauri build` 退出码 1」的最常见原因，详见第 4.5 节。
 
 ---
 
@@ -190,4 +208,5 @@ Tauri v2 的 `resources` 是一个 **`源路径 → 目标路径`** 的 map（�
 | `npm run tauri build` 找不到命令 | `package.json` 缺少 `tauri` script | 确认 `scripts.tauri: "tauri"` 存在 |
 | 打包成功但 app 启动报 `未找到 pichome-server sidecar` | `resources` 映射目标路径与 `main.rs` 不一致 | 核对目标是否为 `pichome-server`（对齐 `Resources/pichome-server/...`） |
 | 打开 dmg 报「无法验证开发者」 | 未配置 Apple 签名 Secrets | 属预期；配置第 4.4 节 Secrets 或右键打开 |
+| `tauri build` 退出码 1，报 `failed to notarize app: Finished with status Invalid` | 配了 Apple 证书，但 `pichome-server` 内部 `.so`/`.dylib` 未签名，公证被拒 | 见第 4.5 节：CI 在 `tauri build` 前递归 codesign sidecar；确认 `APPLE_SIGNING_IDENTITY` 是有效的 `Developer ID Application` |
 | 后端起不来 / 白屏 | `frontendDist` 占位缺失或 14567 端口被占 | 确认 `dist/index.html` 存在、端口未被残留进程占用 |
