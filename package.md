@@ -173,14 +173,38 @@ Apple 直接判 `Invalid`，最终 `tauri build` 退出码 1，报错 `failed to
    脚本里不引用任何 codesign 变量（`set -u` 下不会因变量未定义而 `exit 1`）。PyInstaller 的
    `codesign_identity` 已递归签全，重复 `find` 补签既冗余又有副作用，故移除。
 3. `desktop/src-tauri/tauri.conf.json` 的 `bundle.macOS` 配置
-   `signingIdentity: "${env.APPLE_SIGNING_IDENTITY}"` 与 `entitlements: "../entitlements.plist"`。
-   这样 Tauri 对 externalBin（sidecar 主 EXE）重签时也带上 Python 的 entitlements，避免 Gatekeeper
+   `signingIdentity: "-"`（ad-hoc 伪身份）与 `entitlements: "../entitlements.plist"`。
+   这样 Tauri 对 app 主可执行重签时也带上 Python 的 entitlements，避免 Gatekeeper
    在运行时因缺 `allow-jit` 等直接杀掉 Python 进程。
-4. `release.yml` 把「导入 Apple 证书到临时 keychain」提前到 `Freeze backend` 步骤之前（PyInstaller
-   冻结时需要证书；该 keychain 在整个 job 内保持解锁，供后续 tauri-action 自动 codesign+notarize 复用）。
 
-> 本地未配置证书时：`APPLE_SIGNING_IDENTITY` 为空，`build.spec` / `build_backend.sh` 自动跳过签名，
-> 仅出未签名 `.app`，macOS 对「本机开发者自己构建的 app」不强制公证，可直接运行调试。
+   > ⚠️ **不要写 `"${env.APPLE_SIGNING_IDENTITY}"`**。Tauri 的配置文件**不做 `${env.*}` 插值**
+   > （源码与二进制中均无该实现），这个字符串会被原样交给 codesign，于是本地构建必然失败：
+   > `${env.APPLE_SIGNING_IDENTITY}: no identity found`
+   > → `failed to bundle project: failed codesign application: failed to run command codesign: failed to sign app`。
+   > 需要「按环境切换身份」时，用环境变量或 `--config` 覆盖，别在 json 里写插值。
+
+   **签名身份来源与优先级**（`crates/tauri-cli/src/interface/rust.rs`：
+   `signing_identity = match env::var_os("APPLE_SIGNING_IDENTITY") { Some(v) => …, None => config.macos.signing_identity }`）：
+
+   | 场景 | 身份来源 | 结果 |
+   | --- | --- | --- |
+   | 本地 `npm run build`（未设环境变量） | 配置里的 `-` | ad-hoc 签名，构建通过、本机可直接运行 |
+   | 本地想用真证书 | `APPLE_SIGNING_IDENTITY="Developer ID Application: xxx (TEAMID)" npm run build` | 环境变量覆盖配置，走正式签名 |
+   | CI 配了 Secrets | `tauri-action` 注入的 `APPLE_SIGNING_IDENTITY` | 覆盖配置，正式签名 + 公证 |
+   | CI 未配 Secrets | 配置里的 `-` | ad-hoc（注意下方「空字符串陷阱」） |
+
+   > **空字符串陷阱**：`tauri-bundler` 用 `var_os()` 判断，**空字符串也算「已设置」**。
+   > 所以 `env: APPLE_CERTIFICATE: ${{ secrets.X }}` 在 Secret 未配置时会传入 `""`，
+   > 触发 `Keychain::with_certificate("")` → `security import` 失败。
+   > 正确做法：只在非空时写入 `$GITHUB_ENV`，别把可能是空的 Secret 直接挂到 `env:` 上。
+
+4. `release.yml` 把「导入 Apple 证书到临时 keychain」放在冻结之前（`beforeBuildCommand` 触发的
+   PyInstaller 冻结需要证书；该 keychain 在整个 job 内保持解锁，供后续 tauri-action 自动
+   codesign+notarize 复用）。
+
+> 本地未配置证书时：`build.spec` 的 `codesign_identity` 为 `None`，PyInstaller 仍会对 sidecar 做
+> **ad-hoc 签名**（`codesign -dv` 可见 `flags=0x2(adhoc)`，`codesign --verify` 通过），
+> 配合配置里的 `-`，Tauri 对 `.app` 也做 ad-hoc 签名 → 本机可直接运行调试。
 
 ---
 
