@@ -40,3 +40,5 @@ desktop/src-tauri/target/
 desktop/src-tauri/bin/
 desktop/src-tauri/gen/
 desktop/node_modules/
+
+upload_code.sh
