@@ -1150,7 +1150,7 @@ _BG_TTL = 300
 _BG_CACHE_FILE = "/tmp/pichome_bg_cache.json"
 _BG_POOL_FILE = "/tmp/pichome_bg_pool.json"
 _BG_POOL_MIN = 4          # 池子低于这个数就后台补满
-_BG_UPSTREAM = "https://blog.zhaojq.top/api/bg/random"
+_BG_UPSTREAM = f"https://{settings.PICHOME_BG_DOMAIN}/api/bg/random"
 
 _pool_lock = threading.Lock()
 
@@ -1201,7 +1201,7 @@ def _fetch_one_bg(timeout=6):
     """回源上游拿一个 Bing 壁纸地址；失败返回空串（不抛异常）。"""
     import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    headers = {"Origin": "https://blog.zhaojq.top"}
+    headers = {"Origin": f"https://{settings.PICHOME_BG_DOMAIN}"}
     try:
         r = requests.get(
             _BG_UPSTREAM, headers=headers, allow_redirects=False,
@@ -1237,7 +1237,7 @@ def _topup_pool():
 
 @never_cache
 def bg_proxy(request):
-    """代理 blog.zhaojq.top 的随机背景接口。
+    """代理随机背景接口（上游域名由 settings.PICHOME_BG_DOMAIN 配置）。
 
     - 普通加载 / 首次：命中 5 分钟缓存即秒回；未命中才回源并写入缓存。
     - force=1（点切换）：优先从预取池出队一张（秒回，不现场回源），并异步补满；

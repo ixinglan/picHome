@@ -29,6 +29,10 @@ if PICHOME_DESKTOP:
 else:
     DESKTOP_DATA_DIR = None
 
+# 背景图上游服务域名（桌面端随机背景由它提供）。默认指向新的背景图服务，
+# 下次更换域名无需改代码，只改这个默认值，或用环境变量 PICHOME_BG_DOMAIN 覆盖。
+PICHOME_BG_DOMAIN = os.getenv("PICHOME_BG_DOMAIN", "ixinglan.com")
+
 
 # ===== Django 基础 =====
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-key-please-change")

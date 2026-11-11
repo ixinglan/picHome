@@ -1,6 +1,6 @@
 [package]
 name = "pichome-desktop"
-version = "1.0.0"
+version = "1.1.0"
 description = "PicHome 桌面端"
 edition = "2021"
 rust-version = "1.70"
@@ -18,3 +18,5 @@ serde_json = "1"
 # libc 用于 kill_backend 里 killpg 杀掉整个进程组（PyInstaller bootloader 会 fork
 # 出 Python 子进程监听 14567，只杀父进程会留孤儿进程、端口残留）。
 libc = "0.2"
+# tauri-plugin-dialog 提供「新版本检测」的原生弹窗（发现新版本时提示前往下载）。
+tauri-plugin-dialog = "2"
