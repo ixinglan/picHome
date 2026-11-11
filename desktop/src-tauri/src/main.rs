@@ -4,11 +4,13 @@ use std::os::unix::process::CommandExt; // 提供 process_group(0)，让 sidecar
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::MessageDialogButtons;
 
 /// 保存后端 sidecar 子进程，便于退出时清理，避免端口 14567 残留。
 struct AppState {
@@ -58,7 +60,7 @@ fn kill_backend(app: &tauri::AppHandle) {
 /// 轮询 127.0.0.1:14567 直到就绪（首次启动需 migrate / collectstatic，可能十几秒）。
 fn wait_backend_ready() {
     use std::net::TcpStream;
-    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+    use std::time::{Duration, Instant};
     let start = Instant::now();
     loop {
         if TcpStream::connect(("127.0.0.1", 14567u16)).is_ok() {
@@ -213,12 +215,15 @@ fn run_update_check(app: tauri::AppHandle, manual: bool) {
                         hint = hint
                     );
                     let url = rel.url.clone();
-                    let _ = app.run_on_main_thread(move || {
+                    let app2 = app.clone();
+                    let _ = app2.run_on_main_thread(move || {
                         app.dialog()
-                            .ask(msg)
+                            .message(msg)
                             .title("PicHome 更新可用")
-                            .ok_button_label("前往下载")
-                            .cancel_button_label("稍后")
+                            .buttons(MessageDialogButtons::OkCancelCustom(
+                                "前往下载".to_string(),
+                                "稍后".to_string(),
+                            ))
                             .show(move |yes| {
                                 if yes {
                                     let _ = std::process::Command::new("open").arg(&url).status();
@@ -227,11 +232,12 @@ fn run_update_check(app: tauri::AppHandle, manual: bool) {
                     });
                 } else if manual {
                     let msg = format!("当前已是最新版本（{cur}）。", cur = CURRENT_VERSION);
-                    let _ = app.run_on_main_thread(move || {
+                    let app2 = app.clone();
+                    let _ = app2.run_on_main_thread(move || {
                         app.dialog()
                             .message(msg)
                             .title("PicHome")
-                            .ok_button_label("好的")
+                            .buttons(MessageDialogButtons::Ok)
                             .show(|_| {});
                     });
                 }
@@ -239,11 +245,12 @@ fn run_update_check(app: tauri::AppHandle, manual: bool) {
             None => {
                 save_update_cache(&cache);
                 if manual {
-                    let _ = app.run_on_main_thread(move || {
+                    let app2 = app.clone();
+                    let _ = app2.run_on_main_thread(move || {
                         app.dialog()
                             .message("暂时无法连接更新服务器，请稍后再试。")
                             .title("PicHome")
-                            .ok_button_label("好的")
+                            .buttons(MessageDialogButtons::Ok)
                             .show(|_| {});
                     });
                 }
