@@ -153,7 +153,7 @@
       el.classList.remove("invalid")
     );
 
-    const resp = await fetch("/settings/storage/", {
+    const resp = await fetch(apiPath("/settings/storage/"), {
       method: "POST",
       headers: { "X-CSRFToken": csrftoken },
       body: fd,
@@ -222,7 +222,7 @@
   document.querySelectorAll("[data-activate]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const id = btn.getAttribute("data-activate");
-      const resp = await fetch("/settings/storage/", {
+      const resp = await fetch(apiPath("/settings/storage/"), {
         method: "POST",
         headers: { "X-CSRFToken": csrftoken, "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ action: "activate", id }),
@@ -237,7 +237,7 @@
       const id = btn.getAttribute("data-delete");
       const go = await confirmDialog("删除图床配置", "确定删除该图床配置？此操作不可撤销。", "删除");
       if (!go) return;
-      const resp = await fetch("/settings/storage/", {
+      const resp = await fetch(apiPath("/settings/storage/"), {
         method: "POST",
         headers: { "X-CSRFToken": csrftoken, "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ action: "delete", id }),
@@ -262,7 +262,7 @@
   if (exportMigrateBtn) {
     exportMigrateBtn.addEventListener("click", () => {
       // embed=1：把本地未上云图片的数据一并内嵌进 JSON，保证迁移完整
-      window.location.href = "/export/?all=1&fmt=json&embed=1";
+      window.location.href = apiPath("/export/?all=1&fmt=json&embed=1");
     });
   }
 
@@ -306,7 +306,7 @@
       const fd = new FormData();
       fd.append("file", file);
       try {
-        const resp = await fetch("/import/", {
+        const resp = await fetch(apiPath("/import/"), {
           method: "POST",
           headers: { "X-CSRFToken": csrftoken },
           body: fd,

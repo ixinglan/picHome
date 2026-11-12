@@ -50,7 +50,7 @@
   }
 
   function post(url, data) {
-    return fetch(url, {
+    return fetch((window.PICHOME_PREFIX || "") + url, {
       method: "POST",
       headers: { "X-CSRFToken": csrftoken },
       body: data,
@@ -72,7 +72,7 @@
   }
 
   function adjustBadge(delta) {
-    const nav = document.querySelector('.nav a[href="/recycle/"]');
+    const nav = document.querySelector('.nav a[href$="/recycle/"]');
     if (!nav) return;
     let b = nav.querySelector(".badge");
     if (!b) {
@@ -860,7 +860,7 @@
 
   function exportAssets(ids, fmt) {
     const isImages = fmt === "images";
-    const url = "/export/?" + (ids && ids.length
+    const url = (window.PICHOME_PREFIX || "") + "/export/?" + (ids && ids.length
       ? "ids=" + encodeURIComponent(ids.join(",")) + "&"
       : "all=1&") + "fmt=" + (fmt || "json");
     startExportProgress(isImages);

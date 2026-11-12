@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{% static 'gallery/css/style.css' %}" data-page-node-id="G8ybFCdbVuSfHfUj8EEv9w">
   <meta name="csrf-token" content="{{ csrf_token }}" data-page-node-id="OjqsCivNnFRQ95HYcxv9iG">
   <script>window.IS_DESKTOP = {{ is_desktop|yesno:"true,false" }};</script>
+  <script>window.PICHOME_PREFIX = "{{ request.script_name|default:'' }}";window.apiPath=function(p){return (window.PICHOME_PREFIX||"")+p;};</script>
   <meta name="color-scheme" content="light dark" data-page-node-id="7eADK8yiDfvCYzngnr9Khh">
   {# 先于渲染确定主题，避免深色模式闪白 #}
   <script>
@@ -37,7 +38,7 @@
 
       {% if user.is_authenticated %}
       <nav class="nav" data-page-node-id="XG1DHIOE8XgzzFUvOTnTSD">
-        <a href="{% url 'gallery:index' %}" class="nav-link {% if request.path == '/' %}is-active{% endif %}" data-page-node-id="T8jc8bwjUHnDHFCn5oedFA">
+        <a href="{% url 'gallery:index' %}" class="nav-link {% if request.resolver_match.url_name|default:"" == 'index' %}is-active{% endif %}" data-page-node-id="T8jc8bwjUHnDHFCn5oedFA">
           <span class="label" data-page-node-id="XBMKH29zkvqvagUBzLXhBE">图库</span>
         </a>
         <a href="{% url 'gallery:history' %}" class="nav-link {% if '/history' in request.path %}is-active{% endif %}" data-page-node-id="G8bSkF1bL6gdPhGbUuNedq">
@@ -391,7 +392,7 @@
       }
       /* 切换背景：force=1 从后端预取池出队（秒回），并预加载下一张 */
       function refreshBg() {
-        fetch("/api/bg/?force=1")
+        fetch("{% url 'gallery:bg_proxy' %}?force=1")
           .then(function (r) { return r.json(); })
           .then(function (d) {
             if (d && d.url) setBg(d.url);
@@ -401,7 +402,7 @@
       }
       /* 仅预告下一张供预加载，不消费 */
       function peekBg() {
-        fetch("/api/bg/?peek=1")
+        fetch("{% url 'gallery:bg_proxy' %}?peek=1")
           .then(function (r) { return r.json(); })
           .then(function (d) { preload(d && (d.next || d.url)); })
           .catch(function () {});

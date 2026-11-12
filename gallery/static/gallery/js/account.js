@@ -90,7 +90,7 @@
 
     saveBtn.disabled = true;
     saveBtn.textContent = "保存中…";
-    fetch("/settings/account/", {
+    fetch(apiPath("/settings/account/"), {
       method: "POST",
       headers: { "X-CSRFToken": csrf },
       body: fd,

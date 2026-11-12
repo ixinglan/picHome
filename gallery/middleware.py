@@ -16,6 +16,19 @@ DEMO_EXEMPT_PATHS = ("/login/", "/logout/", "/api/bg/")
 DEMO_SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 
 
+def _exempt(path):
+    """演示账号豁免：兼容根路径与子路径（FORCE_SCRIPT_NAME）两种部署。
+
+    request.path 在子路径部署下带前缀（如 /pichome/login/），
+    这里同时匹配带前缀与不带前缀两种写法。
+    """
+    if path in DEMO_EXEMPT_PATHS:
+        return True
+    from django.conf import settings
+    sn = getattr(settings, "FORCE_SCRIPT_NAME", "") or ""
+    return bool(sn) and path.startswith(sn) and path[len(sn):] in DEMO_EXEMPT_PATHS
+
+
 def _is_demo(user):
     if not user or not user.is_authenticated:
         return False
@@ -37,7 +50,7 @@ class DemoReadOnlyMiddleware:
             method = (request.method or "GET").upper()
             path = request.path
             # 写方法且不在白名单 → 拒绝
-            if method not in DEMO_SAFE_METHODS and path not in DEMO_EXEMPT_PATHS:
+            if method not in DEMO_SAFE_METHODS and not _exempt(path):
                 # 区分 AJAX / JSON 请求与普通页面，返回合适的 403
                 accept = request.META.get("HTTP_ACCEPT", "")
                 xrw = request.META.get("HTTP_X_REQUESTED_WITH", "")

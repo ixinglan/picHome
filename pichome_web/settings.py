@@ -142,8 +142,19 @@ USE_I18N = True
 USE_TZ = True
 
 
+# ===== 子路径部署（通过 docker-compose 环境变量控制）=====
+# PICHOME_SCRIPT_NAME：应用对外挂载的子路径，例如 /pichome。
+# 为空（默认）表示挂在根路径 /，兼容旧部署（pichome.zhaojq.top）与本机直连；
+# 配置后 Django 会自动给所有 URL / 静态加此前缀，无需改代码。
+SCRIPT_NAME = os.getenv("PICHOME_SCRIPT_NAME", "").strip().rstrip("/")
+if SCRIPT_NAME:
+    FORCE_SCRIPT_NAME = SCRIPT_NAME
+
 # ===== 静态资源 / 媒体文件 =====
-STATIC_URL = "static/"
+if SCRIPT_NAME:
+    STATIC_URL = f"{SCRIPT_NAME}/static/"
+else:
+    STATIC_URL = "static/"
 if PICHOME_DESKTOP:
     # 静态/媒体都落到用户数据目录（MEDIA 需要可写；STATIC 由 collectstatic 生成）
     STATIC_ROOT = DESKTOP_DATA_DIR / "static_collected"
@@ -177,5 +188,6 @@ PICHOME_API_TOKEN = os.getenv("PICHOME_API_TOKEN", "")
 
 
 # ===== 登录鉴权 =====
-LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/"
+# 登录跳转同样跟随子路径前缀；为空则用根路径（兼容旧部署）
+LOGIN_URL = f"{SCRIPT_NAME}/login/" if SCRIPT_NAME else "/login/"
+LOGIN_REDIRECT_URL = f"{SCRIPT_NAME}/" if SCRIPT_NAME else "/"

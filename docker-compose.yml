@@ -27,6 +27,9 @@ services:
       # 对外 API（/api/v1/upload，供 CLI / AI Agent 用）的令牌。
       # 留空 = 不校验（仅建议本机使用）；填值后 CLI 必须带 --token 或 PICHOME_API_TOKEN。
       # PICHOME_API_TOKEN: "换成一串随机字符串"
+      # 子路径部署：应用挂在 https://域名/pichome 时填 /pichome；
+      # 留空（默认）则挂在根路径 /，兼容旧部署与本机直连。改路径只改这一行。
+      PICHOME_SCRIPT_NAME: "/pichome"
     volumes:
       # SQLite 数据库持久化：容器删了重建，数据也不丢
       - db_data:/app/data
